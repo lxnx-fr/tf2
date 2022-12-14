@@ -86,7 +86,7 @@ public Action GodCommand(int iClient, int iArgs) {
             return Plugin_Handled;
         }
 		if (GodPlayer[iTargetList[0]].bInGodMode) {
-			ywGodPlayer[iTargetList[0]].bInGodMode = false;
+			GodPlayer[iTargetList[0]].bInGodMode = false;
 			CPrintToChat(iClient, "{mediumpurple}ɢᴏᴅ {black}» {default}You disabled Godmode for {dodgerblue}%N", iTargetList[0]);
 			return Plugin_Handled;
 		} else {
