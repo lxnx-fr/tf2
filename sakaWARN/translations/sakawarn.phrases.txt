@@ -6,11 +6,18 @@
   }
   "ClientSayHookSuccess"
   {
+    /**
+     * {1} - Player who received a warning
+     * {2} - Warning Id
+     */
     "#format" "{1:s},{2:i}"
     "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] You warned {dodgerblue}{1} {default}[{dodgerblue}#{2}{default}]"
   }
   "ClientSayHookSuccessReason"
   {
+    /**
+     * {1} - Warning Reason
+     */
     "#format" "{1:s}"
     "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] Reason: {red}{1}"
   }
@@ -28,11 +35,17 @@
   }
   "Menu_DeleteWarn_Success"
   {
+    /**
+     * {1} - Warning Id
+     */
     "#format" "{1:i}"
     "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}Deleted Warn with ID {dodgerblue}#{1}"
   }
   "Menu_DeleteWarn_Aborted"
   {
+    /**
+     * {1} - Warning Id
+     */
     "#format" "{1:i}"
     "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}Aborted Deletion of Warn with ID {dodgerblue}#{1}"
   }
@@ -67,11 +80,17 @@
   }
   "PlayerReceivedWarn"
   {
+    /**
+     * {1} - Executor Name or 'ADMIN'
+     */
     "#format" "{1:s}"
     "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}You've been {red}warned{default} by {dodgerblue}{1}"
   }
   "PlayerReceivedWarnReason"
   {
+    /**
+     * {1} - Warning Reason
+     */
     "#format" "{1:s}"
     "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}Reason: {red}{1}"
   }
