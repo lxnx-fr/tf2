@@ -195,7 +195,6 @@ public Action RoundStartEvent(Handle hEvent, char[] strEventName, bool bDontBroa
 }
 
 public Action RoundEndEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
-	
 	UpdateAllPlayers();
 	return Plugin_Handled;
 }

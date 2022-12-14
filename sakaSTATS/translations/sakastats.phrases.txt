@@ -1,44 +1,38 @@
-"Phrases" 
+"Phrases"
 {
-    "Command_TopSpeed"
-    {
+    "Command_TopSpeed" {
         /**
-         * {1} - Top Speed in mph
-         * {2} - Top Deflections
+         * {1} - Player Top Speed
+         * {2} - Player Top Deflections
          */
-        "#format"   "{1:f}, {2:i}"
-        "en"    "{mediumpurple}sᴛᴀᴛs {black}» {default}Your Top Speed: {dodgerblue}{1} {default}mph {black}({dodgerblue}{2} {default}Deflections{black})""
+        "#format" "{1:.0f},{2:i}"
+        "en"    "{mediumpurple}sᴛᴀᴛs {black}» {default}Your Top Speed: {dodgerblue}{1} {default}mph {black}({dodgerblue}{2} {default}Deflections{black})"
     }
-    "Command_Coins"
-    {
+    "Command_Coins" {
         /**
          * {1} - Player Coins
          */
-        "#format"   "{1:i}"
+        "#format" "{1:i}"
         "en"    "{mediumpurple}sᴛᴀᴛs {black}» {default}Your Coins: {dodgerblue}{1} {default}Points."
     }
-    "Command_Place"
-    {
+    "Command_Place" {
         /**
          * {1} - Player Name
-         * {2} - Player Rank
-         * {3} - All Time Players
+         * {2} - Players Rank
+         * {3} - All Time Player Count
          * {4} - Player Points
          */
-        "#format"   "{1:N}, {2:i}, {3:i}, {4:i}"
+        "#format"   "{1:N},{2:i},{3:i},{4:i}"
         "en"    "{mediumpurple}sᴛᴀᴛs {black}» {dodgerblue}{1} {default}is on place {dodgerblue}#{2}{default} out of {dodgerblue}{3}{default} with {dodgerblue}{4}{default} Points."
     }
-    "OnEntityDestroyed"
-    {
+    "OnEntityDestroyed" {
         /**
          * {1} - Player Name
-         * {2} - Rocket Speed mph
+         * {2} - Rocket Speed in mph
          * {3} - Rocket Deflections
-         * {4} - Spelling: Deflections/Deflection
-         * {5} - Rocket Admin Speed
+         * {4} - Rocket Speed in Hammer units
          */
-        "#format"   "{1:N}, {2:f}, {3:i}, {4:s}, {5:i}"
+        "#format"   "{1:N},{2:.0f},{3:i},{4:s},{5:.0f}"
         "en"    "{mediumpurple}{1} {black}: {dodgerblue}{2}{default} mph ({dodgerblue}{3}{default} {4} | {dodgerblue}{5}{default} Admin Speed)"
     }
-
 }

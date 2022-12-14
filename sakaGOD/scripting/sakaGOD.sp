@@ -27,7 +27,7 @@ public Plugin myinfo ={
 	url = PLUGIN_URL
 }
 
-public void OnPluginStart() {
+public void OncPluginStart() {
 	PrintToServer("[sakaGOD] Enabling Plugin (Version %s)", PLUGIN_VERSION);
 	LoadTranslations("sakagod.phrases.txt");
 	RegAdminCmd("sm_god", GodCommand, ADMFLAG_KICK);

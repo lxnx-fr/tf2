@@ -10,6 +10,9 @@
     }
     "Command_NoUserFound"
     {
+        /**
+         * {1} - User argument
+         */
         "#format"   "{1:s}"
         "en"    "{mediumpurple}ɢᴏᴅ {black}» {red}No matching user found with: {dodgerblue}{1}"
     }
@@ -23,11 +26,17 @@
     }
     "Command_Other_Enabled"
     {
+        /**
+         * {1} - Player Name
+         */
         "#format"   "{1:N}"
         "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}You enabled Godmode for {dodgerblue}{1}"
     }
     "Command_Other_Disabled"
     {
+        /**
+         * {1} - Player Name
+         */
         "#format"   "{1:N}"
         "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}You disabled Godmode for {dodgerblue}{1}"
     }
