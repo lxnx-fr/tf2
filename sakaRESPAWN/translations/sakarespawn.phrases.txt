@@ -1,0 +1,33 @@
+"Phrases"
+{
+    "Command_ListPlayers_Start"
+    {
+        "en"    "{mediumpurple}ʀᴇsᴘᴀᴡɴ {black}» {default}List of connected Players | Start"
+    }
+    "Command_ListPlayers_Entry"
+    {
+        "#format"   "{1:i},{2:N}"
+        "en"    "{black}» {default}Client Index: {dodgerblue}{1} {default}Nickname: {dodgerblue}{2}"
+    }
+    "Command_ListPlayers_End"
+    {
+        "en"    "{mediumpurple}ʀᴇsᴘᴀᴡɴ {black}» {default}List of connected Players | End"
+    }
+    "Command_NoUserFound"
+    {
+        "en"    "{mediumpurple}ʀᴇsᴘᴀᴡɴ {black}» {red}No matching user found."
+    }
+    "Command_NoMultipleTargets"
+    {
+        "en"    "{mediumpurple}ʀᴇsᴘᴀᴡɴ {black}» {red}Can't process more than 1 User"
+    }
+    "Command_RespawnSuccess"
+    {
+        "#format"   "{1:N},{2:i}"
+        "en"    "{mediumpurple}ʀᴇsᴘᴀᴡɴ {black}» {default}Respawning {dodgerblue}{1}{default} ({dodgerblue}{2}{default})"
+    }
+    "Command_Usage"
+    {
+        "en"    "{mediumpurple}ʀᴇsᴘᴀᴡɴ {black}» {red}Usage: /respawn <name|#id|index|listplayers>"
+    }
+}
