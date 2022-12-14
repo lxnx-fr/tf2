@@ -1,0 +1,78 @@
+"Phrases"
+{
+  "ClientSayHookCancelled"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] Warning Cancelled"
+  }
+  "ClientSayHookSuccess"
+  {
+    "#format" "{1:s},{2:i}"
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] You warned {dodgerblue}{1} {default}[{dodgerblue}#{2}{default}]"
+  }
+  "ClientSayHookSuccessReason"
+  {
+    "#format" "{1:s}"
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] Reason: {red}{1}"
+  }
+  "ClientSayHookInfo"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] You now have {dodgerblue}30 {default}seconds to type a reason in the chat."
+  }
+  "ClientSayHookInfo2"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] Type {dodgerblue}--c {default}to cancel, {dodgerblue}--a {default}Being Anonymous, {dodgerblue}-nm {default}No Message"
+  }
+  "UserHasNoWarns"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {red}This user has no warns."
+  }
+  "Menu_DeleteWarn_Success"
+  {
+    "#format" "{1:i}"
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}Deleted Warn with ID {dodgerblue}#{1}"
+  }
+  "Menu_DeleteWarn_Aborted"
+  {
+    "#format" "{1:i}"
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}Aborted Deletion of Warn with ID {dodgerblue}#{1}"
+  }
+  "Command_AddWarn_NoUserFound"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {red}No matching user found."
+  }
+  "Command_AddWarn_NoMultipleTargets"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {red}Can't process more than 1 User"
+  }
+  "Command_AddWarn_NoWarnYourself"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {red}You can't warn yourself."
+  }
+  "Command_AddWarn_Usage"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}Wrong usage! {red}/addwarn <name|#userid|index|steamid>"
+  }
+
+  "Command_ListWarns_NoUserFound"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {red}No matching user found."
+  }
+  "Command_ListWarns_NoMultipleTargets"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {red}Can't process more than 1 User"
+  }
+  "Command_ListWarns_Usage"
+  {
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}Wrong usage! {red}/listwarns <name|#userid|index|steamid>"
+  }
+  "PlayerReceivedWarn"
+  {
+    "#format" "{1:s}"
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}You've been {red}warned{default} by {dodgerblue}{1}"
+  }
+  "PlayerReceivedWarnReason"
+  {
+    "#format" "{1:s}"
+    "en"    "[{#95F3E3}O{#08C4CD}D{#27939D}B{default}] {default}Reason: {red}{1}"
+  }
+}
