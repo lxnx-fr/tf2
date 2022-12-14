@@ -3,7 +3,7 @@
 
 #include <sourcemod>
 #include <sdktools>
-#include <morecolors>
+#include <multicolors>
 
 #define COMMAND_DELAY   	0.250
 #define PLUGIN_VERSION 		"1.0"
@@ -24,6 +24,7 @@ public Plugin myinfo =  {
 };
 
 public void OnPluginStart() {
+	LoadTranslations("sakatp.phrases.txt");
 	hDefaultView = CreateConVar("sm_tp_default", "0", "Set default view (0 firstperson, 1 thirdperson, def. 0)");
 	RegConsoleCmd("sm_firstperson", FirstPersonCommand);
 	RegConsoleCmd("sm_thirdperson", ThirdPersonCommand);
@@ -65,7 +66,7 @@ public void OnClientConnected(int iClient) {
 
 public Action FirstPersonCommand(int iClient, int iArgs) {
 	if (iClient == 0) {
-		CReplyToCommand(iClient, "{mediumpurple}ғᴘ {black}» {default}Command is in-game only");
+		CPrintToChat(iClient, "%t", "Command_FP_OnlyInGame");
 		return Plugin_Handled;
 	}
 	FirstPersonRequest(iClient);
@@ -74,7 +75,7 @@ public Action FirstPersonCommand(int iClient, int iArgs) {
 
 public Action ThirdPersonCommand(int iClient, int iArgs) {
 	if (iClient == 0) {
-		CReplyToCommand(iClient, "{mediumpurple}ᴛᴘ {black}» {default}Command is in-game only");
+		CPrintToChat(iClient, "%t", "Command_TP_OnlyInGame");
 		return Plugin_Handled;
 	}
 	ThirdPersonRequest(iClient);
@@ -95,18 +96,18 @@ public void SetFirstPersonView(int iClient) {
 
 public void ThirdPersonRequest(int iClient) {
 	if (gInThirdperson[iClient]) {
-		CReplyToCommand(iClient, "{mediumpurple}ᴛᴘ {black}» {default}Thirdperson is already enabled.");
+		CPrintToChat(iClient, "%t", "Command_TP_AlreadyEnabled");
 	} else {
 		SetThirdPersonView(iClient);
-		CReplyToCommand(iClient, "{mediumpurple}ᴛᴘ {black}» {default}Thirdperson enabled.");
+		CPrintToChat(iClient, "%t", "Command_TP_Enabled");
 	}
 }
 
 public void FirstPersonRequest(int iClient) {
 	if (!gInThirdperson[iClient]) {
-		CReplyToCommand(iClient, "{mediumpurple}ғᴘ {black}» {default}Firstperson is already enabled.");
+		CPrintToChat(iClient, "%t", "Command_FP_AlreadyEnabled");
 	} else {
 		SetFirstPersonView(iClient);
-		CReplyToCommand(iClient, "{mediumpurple}ғᴘ {black}» {default}Firstperson enabled.");
+		CPrintToChat(iClient, "%t", "Command_FP_Enabled");
 	}
 }

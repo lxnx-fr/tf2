@@ -1,0 +1,27 @@
+"Phrases"
+{
+    "Command_TP_OnlyInGame"
+    {
+         "en"    "{mediumpurple}ᴛᴘ {black}» {red}Command is in-game only"
+    }
+    "Command_FP_OnlyInGame"
+    {
+         "en"    "{mediumpurple}ғᴘ {black}» {red}Command is in-game only"
+    }
+    "Command_TP_AlreadyEnabled"
+    {
+         "en"    "{mediumpurple}ᴛᴘ {black}» {red}Thirdperson is already enabled."
+    }
+    "Command_FP_AlreadyEnabled"
+    {
+         "en"    "{mediumpurple}ғᴘ {black}» {red}Firstperson is already enabled."
+    }
+    "Command_TP_Enabled"
+    {
+         "en"    "{mediumpurple}ᴛᴘ {black}» {default}Thirdperson enabled."
+    }
+    "Command_FP_Enabled"
+    {
+         "en"    "{mediumpurple}ғᴘ {black}» {red}Firstperson is already enabled."
+    }
+}
