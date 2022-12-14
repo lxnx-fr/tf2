@@ -1,0 +1,34 @@
+"Phrases"
+{
+    "Command_Self_Disabled"
+    {
+        "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}You disabled Godmode for yourself."
+    }
+    "Command_Self_Enabled"
+    {
+        "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}You enabled Godmode for yourself."
+    }
+    "Command_NoUserFound"
+    {
+        "#format"   "{1:s}"
+        "en"    "{mediumpurple}ɢᴏᴅ {black}» {red}No matching user found with: {dodgerblue}{1}"
+    }
+    "Command_NoMultipleTargets"
+    {
+        "en"    "{mediumpurple}ɢᴏᴅ {black}» {red}No multiple targets"
+    }
+    "Command_Usage"
+    {
+        "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}Wrong usage! {red}/god [name|#id|index|steamid]"
+    }
+    "Command_Other_Enabled"
+    {
+        "#format"   "{1:N}"
+        "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}You enabled Godmode for {dodgerblue}{1}"
+    }
+    "Command_Other_Disabled"
+    {
+        "#format"   "{1:N}"
+        "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}You disabled Godmode for {dodgerblue}{1}"
+    }
+}

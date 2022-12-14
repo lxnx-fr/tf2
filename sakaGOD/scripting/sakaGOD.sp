@@ -29,6 +29,7 @@ public Plugin myinfo ={
 
 public void OnPluginStart() {
 	PrintToServer("[sakaGOD] Enabling Plugin (Version %s)", PLUGIN_VERSION);
+	LoadTranslations("sakagod.phrases.txt");
 	RegAdminCmd("sm_god", GodCommand, ADMFLAG_KICK);
 }
 public void OnPluginEnd() {
@@ -42,11 +43,11 @@ public Action GodCommand(int iClient, int iArgs) {
 		GetClientName(iClient, sName, sizeof(sName));
 		if (GodPlayer[iClient].bInGodMode) {
 			GodPlayer[iClient].bInGodMode = false;
-			CPrintToChat(iClient, "{mediumpurple}ɢᴏᴅ {black}» {default}You disabled Godmode for yourself.");
+			CPrintToChat(iClient, "%t", "Command_Self_Disabled");
 			return Plugin_Handled;
 		} else {
 			GodPlayer[iClient].bInGodMode = true;
-			CPrintToChat(iClient, "{mediumpurple}ɢᴏᴅ {black}» {default}You enabled Godmode for yourself.");
+			CPrintToChat(iClient, "%t", "Command_Self_Enabled");
 			return Plugin_Handled;
 		}
 	} else if (iArgs == 1) {
@@ -72,30 +73,30 @@ public Action GodCommand(int iClient, int iArgs) {
                 iTargetList[0] = iBackupTarget;
             } else {
                 /* no matching client index / client id / client name or steamid found -> abort */
-                CPrintToChat(iClient, "{mediumpurple}ɢᴏᴅ {black}» {red}No matching user found with: {dodgerblue}%s", sTarget);
+                CPrintToChat(iClient, "%t", "Command_NoUserFound", sTarget);
                 return Plugin_Handled;
 			}
         }
         /* if target count is over 1: abort */ 
 		if (iTargetList[0] == -1) {
-			CPrintToChat(iClient, "{mediumpurple}ɢᴏᴅ {black}» {red}No matching user found with: {dodgerblue}%s", sTarget);
+			CPrintToChat(iClient, "%t", "Command_NoUserFound", sTarget);
 			return Plugin_Handled;
 		}
 		if (iTargetCount > 1) {
-            CPrintToChat(iClient, "{mediumpurple}ɢᴏᴅ {black}» {red}No multiple targets");
-            return Plugin_Handled;
+			CPrintToChat(iClient, "%t", "Command_NoMultipleTargets");
+			return Plugin_Handled;
         }
 		if (GodPlayer[iTargetList[0]].bInGodMode) {
 			GodPlayer[iTargetList[0]].bInGodMode = false;
-			CPrintToChat(iClient, "{mediumpurple}ɢᴏᴅ {black}» {default}You disabled Godmode for {dodgerblue}%N", iTargetList[0]);
+			CPrintToChat(iClient, "Command_Other_Disabled", iTargetList[0]);
 			return Plugin_Handled;
 		} else {
 			GodPlayer[iTargetList[0]].bInGodMode = true;
-			CPrintToChat(iClient, "{mediumpurple}ɢᴏᴅ {black}» {default}You enabled Godmode for %N.", iTargetList[0]);
+			CPrintToChat(iClient, "Command_Other_Enabled", iTargetList[0]);
 			return Plugin_Handled;
 		}
 	} else {
-		CPrintToChat(iClient, "{mediumpurple}ɢᴏᴅ {black}» {default}Wrong usage! {red}/god [name|#id|index|steamid]");
+		CPrintToChat(iClient, "%t", "Command_Usage");
 	}
 	return Plugin_Handled;
 }
