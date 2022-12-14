@@ -3,10 +3,7 @@
 
 
 #include <sourcemod>
-#include <sdktools>
 #include <tf2>
-#include <tf2_stocks>
-#include <sdkhooks>
 #include <multicolors>
 
 #define PLUGIN_VERSION 		"1.0"
