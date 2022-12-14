@@ -82,14 +82,15 @@ public void OnPluginEnd() {
 }
 
 public void InitDatabase(bool bConnect) {
-	Handle DB_KEYVALUES = CreateKeyValues("database");
+	/*Handle DB_KEYVALUES = CreateKeyValues("database");
 	KvSetString(DB_KEYVALUES, "host", "ipv4.laurinfrank.de");
 	KvSetString(DB_KEYVALUES, "database", "dodgeball");
 	KvSetString(DB_KEYVALUES, "user", "tf2server");
-	KvSetString(DB_KEYVALUES, "pass", "38~68Toni");
+	KvSetString(DB_KEYVALUES, "pass", "38~68Toni");*/
 	char sError[255];
 	if (bConnect) {
-		DB = SQL_ConnectCustom(DB_KEYVALUES, sError, sizeof(sError), false);
+		DB = SQL_Connect("sakastats", true, sError, sizeof(sError));
+		//DB = SQL_ConnectCustom(DB_KEYVALUES, sError, sizeof(sError), false);
 		if (DB == INVALID_HANDLE) {
 	    	PrintToServer("[sakaSTATS] Could not connect to datebase: %s", sError);
 	    	CloseHandle(DB);

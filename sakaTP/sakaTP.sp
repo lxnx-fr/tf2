@@ -5,7 +5,7 @@
 #include <sdktools>
 #include <morecolors>
 
-#define COMMAND_DELAY   	0.250       // Delay is set in seconds
+#define COMMAND_DELAY   	0.250
 #define PLUGIN_VERSION 		"1.0"
 #define PLUGIN_NAME 		"sakaTP"
 #define PLUGIN_AUTHOR 		"ѕαĸα"
