@@ -1,4 +1,43 @@
 "Phrases"
 {
-
+    "Command_Solo_Deactivated"
+    {
+        "#format" "{1:N}"
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {red}Deactivated {default}Solo Mode for {dodgerblue}{1}"
+    }
+    "Command_Solo_Activated"
+    {
+        "#format" "{1:N}"
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {green}Activated {default}Solo Mode for {dodgerblue}{1}"
+    }
+    "Command_Solo_NotUseRightNow"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {red}Sorry, you may not use this command right now."
+    }
+    "Command_Solo_OnlyRedBlueTeam"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {red}You need to be in Team RED or BLUE to use this command."
+    }
+    "Command_Solo_Cooldown"
+    {
+        "#format" "{1:i}"
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {red}Please wait {1} seconds before using this command again."
+    }
+    "Command_Solo_RestOfTeamInSolo"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {red}The rest of your Team already has Solo Mode activated, therefore you can't enable it."
+    }
+    "Command_Solo_Slain"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {default}You have been slain. You will be respawned when your Team has no more players alive."
+    }
+    "Command_Solo_Slain2"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {default}To disable this, type {dodgerblue}!solo {default}again (you won't be respawned, however)."
+    }
+    "RoundStart_SoloPlayers"
+    {
+        "#format" "{1:s}"
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {default}Lonely Players: {dodgerblue}{1}"
+    }
 }
