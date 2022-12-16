@@ -40,4 +40,12 @@
         "#format" "{1:s}"
         "en"    "{mediumpurple}sᴏʟᴏ {black}» {default}Lonely Players: {dodgerblue}{1}"
     }
+    "Red_SoloQueueCleared"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {default}Cleared Solo Queue from RED Team"
+    }
+    "Blue_SoloQueueCleared"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {default}Cleared Solo Queue from BLUE Team"
+    }
 }

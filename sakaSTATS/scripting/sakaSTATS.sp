@@ -115,7 +115,7 @@ public Action PlayerDeathEvent(Handle hEvent, char[] strEventName, bool bDontBro
 			StatsPlayer[iVictim].bPlayerDied = true;
 		}
 	}
-	return Plugin_Handled;
+	return Plugin_Continue;
 }
 
 public Action PlayerSpawnEvent(Handle hEvent, char[] sEventName, bool bDontBroadcast) {
@@ -742,17 +742,18 @@ stock bool PlayerExists(int iClient) {
 stock bool GetPlayerCountry(int iClient) {
 	bool bCountryFailed = false;
 	bool bIPFailed = false;
-	char sCountryName[128];
+	char sCountryName[255];
 	char sClientIP[128];
 	if (!GetClientIP(iClient, sClientIP, sizeof(sClientIP), true)) {
 		PrintToServer("[sakaSTATS] GetPlayerCountry() IP-Adress not found: %N", iClient);
 		bIPFailed = true;
 	}
-	if (!GeoipCountry(sClientIP, sCountryName, sizeof(sCountryName)) || bIPFailed) {
+	if (!GeoipCountry(sClientIP, sCountryName, 255) || bIPFailed) {
 		PrintToServer("[sakaSTATS] GetPlayerCountry() Country not found: %N", iClient);
 		bCountryFailed = true;
 	}
-	StatsPlayer[iClient].sCountry = bIPFailed && bCountryFailed ? "Not Found" : sCountryName;
+	
+	StatsPlayer[iClient].sCountry = ((bIPFailed && bCountryFailed) ? "Not Found" : sCountryName);
 	return bIPFailed && bCountryFailed;
 }
 public void CreatePlayer(int iClient, bool bMessage) {
