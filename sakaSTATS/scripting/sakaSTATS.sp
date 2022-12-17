@@ -83,11 +83,6 @@ public void OnPluginEnd() {
 }
 
 public void InitDatabase(bool bConnect) {
-	/*Handle DB_KEYVALUES = CreateKeyValues("database");
-	KvSetString(DB_KEYVALUES, "host", "ipv4.laurinfrank.de");
-	KvSetString(DB_KEYVALUES, "database", "dodgeball");
-	KvSetString(DB_KEYVALUES, "user", "tf2server");
-	KvSetString(DB_KEYVALUES, "pass", "38~68Toni");*/
 	char sError[255];
 	if (bConnect) {
 		DB = SQL_Connect("sakastats", true, sError, sizeof(sError));
