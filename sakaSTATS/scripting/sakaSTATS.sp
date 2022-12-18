@@ -2,6 +2,7 @@
 #pragma newdecls required
 
 #include <sourcemod>
+#include <tf2>
 #include <tf2_stocks>
 #include <dbi>
 #include <multicolors>
@@ -35,6 +36,10 @@ enum struct CachedStats {
 	int savedPoints;	
 	bool bPlayerDied;
 }
+
+
+bool bStatsEnabled = false;
+bool bBotFound = false;
 
 CachedStats StatsPlayer[MAXPLAYERS + 1];
 
@@ -70,7 +75,7 @@ public void OnPluginStart() {
 	HookEvent("teamplay_round_start", RoundStartEvent, EventHookMode_PostNoCopy);
 	HookEvent("teamplay_round_win", RoundEndEvent, EventHookMode_PostNoCopy);
 	HookEvent("player_spawn", PlayerSpawnEvent, EventHookMode_Pre);
-	HookEvent("player_death", PlayerDeathEvent, EventHookMode_Pre);
+	HookEvent("player_death", PlayerDeathEvent, EventHookMode_Post);
 	LoadAllPlayers();
 }
 
@@ -101,13 +106,15 @@ public void InitDatabase(bool bConnect) {
 	}
 }
 public Action PlayerDeathEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
-	//int iAttacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"));
+	int iAttacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"));
 	int iVictim = GetClientOfUserId(GetEventInt(hEvent, "userid"));
-	if (IsValidClient(iVictim)) {
+	if (IsValidClient(iVictim) && !IsFakeClient(iVictim)) {
 		int iInflictor = GetEventInt(hEvent, "inflictor_entindex");
 		int iIndex = TFDB_FindRocketByEntity(iInflictor);
 		if (iIndex != -1) {
+			StatsPlayer[iAttacker].iKills++;
 			StatsPlayer[iVictim].bPlayerDied = true;
+			return Plugin_Continue;
 		}
 	}
 	return Plugin_Continue;
@@ -152,7 +159,6 @@ public void OnClientPutInServer(int iClient) {
 		PrintToServer("[sakaSTATS] PlayerExists(false) %N", iClient);
 		CreatePlayer(iClient, true);
 	}
-	
 }
 public void OnClientDisconnect(int iClient) {
 	if (!IsEntityConnectedClient(iClient) || IsFakeClient(iClient)) return;
@@ -167,25 +173,57 @@ public void OnClientDisconnect(int iClient) {
 	}*/
 	LoadPlayerToDB(iClient);
 }
-public void TFDB_OnRocketDeflect(int iIndex, int iEntity, int iOwner) {
-	int iSavedTopSpeed = StatsPlayer[iOwner].iTopSpeed;
-	int iSavedDeflections = StatsPlayer[iOwner].iDeflections;
-	
-	int iCurrentTopSpeed = RoundToNearest(TFDB_GetRocketSpeed(iIndex));
-	int iCurrentDeflections = TFDB_GetRocketDeflections(iIndex);
-	if (iCurrentTopSpeed > iSavedTopSpeed) { 
-		StatsPlayer[iOwner].iTopSpeed = iCurrentTopSpeed;
+
+stock bool IsPlayerVsBot() {
+	bool bBot = false;
+	for (int i = 0; i <= MaxClients; i++) {
+		if (IsValidClient(i)) {
+			if (IsFakeClient(i)) {
+				bBot = true;
+				break;
+			}
+		}
 	}
-	if (iCurrentDeflections > iSavedDeflections) {
-		StatsPlayer[iOwner].iDeflections = iCurrentDeflections;
+	return bBot;
+}
+public void TFDB_OnRocketDeflect(int iIndex, int iEntity, int iOwner) {
+	if (!bBotFound) {
+		int iSavedTopSpeed = StatsPlayer[iOwner].iTopSpeed;
+		int iSavedDeflections = StatsPlayer[iOwner].iDeflections;
+		
+		int iCurrentTopSpeed = RoundToNearest(TFDB_GetRocketSpeed(iIndex));
+		int iCurrentDeflections = TFDB_GetRocketDeflections(iIndex);
+		if (iCurrentTopSpeed > iSavedTopSpeed) { 
+			StatsPlayer[iOwner].iTopSpeed = iCurrentTopSpeed;
+		}
+		if (iCurrentDeflections > iSavedDeflections) {
+			StatsPlayer[iOwner].iDeflections = iCurrentDeflections;
+		}
 	}
 }
+stock int PlayerCountWithoutBots() {
+	/**
+	 * Count every player, that is connected, not a bot and his team is red or blue
+	 */
+	int iCount = 0;
+	for (int i = 1; i < MaxClients; i++) {
+		if (IsClientConnected(i) && !IsFakeClient(i) && (GetClientTeam(i) == 2 || GetClientTeam(i) == 3)) {
+			iCount++;
+		}
+	}
+	return iCount;
+} 
 public Action RoundStartEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
-	/*if (CountPlayers(false) >= 3) {
-		//bStatsEnabled = true;
+	bBotFound = IsPlayerVsBot();
+	if (PlayerCountWithoutBots() >=3 ) {
+		if (!bStatsEnabled) {
+			CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are now enabled. Enough Player are Online! ({dodgerblue}%i{default}/{dodgerblue}3{default})", PlayerCountWithoutBots());
+		}
+		bStatsEnabled = true; 
 	} else {
-		CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are disabled. Not enough Players Online ({dodgerblue}%i{default}/{dodgerblue}3{default})");
-	}*/
+		bStatsEnabled = false;
+		CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are disabled. Not enough Players Online ({dodgerblue}%i{default}/{dodgerblue}3{default})", PlayerCountWithoutBots());
+	}
 	return Plugin_Handled;
 }
 
@@ -272,41 +310,31 @@ public void DrawUserStats(int iClient) {
 	int iSeconds = iCachedPlaytime + GetTime() - StatsPlayer[iClient].iLastLogin;
 	Menu menu = new Menu(UserStatsMenuHandle);
 	menu.SetTitle("Your Stats");
-	char cFormatKills[32];
-	Format(cFormatKills, sizeof(cFormatKills), "Kills: %i", StatsPlayer[iClient].iKills);
-	menu.AddItem("0", cFormatKills, ITEMDRAW_DISABLED);
-
-	char cFormatDeaths[32];
-	Format(cFormatDeaths, sizeof(cFormatDeaths), "Deaths: %i", StatsPlayer[iClient].iDeaths);
-	menu.AddItem("1", cFormatDeaths, ITEMDRAW_DISABLED);
-
+	char sFormatText[64];
+	Format(sFormatText, sizeof(sFormatText), "Kills: %i", StatsPlayer[iClient].iKills);
+	menu.AddItem("0", sFormatText, ITEMDRAW_DISABLED);
+	Format(sFormatText, sizeof(sFormatText), "Deaths: %i", StatsPlayer[iClient].iDeaths);
+	menu.AddItem("1", sFormatText, ITEMDRAW_DISABLED);
 	bool bZero = StatsPlayer[iClient].iKills > 0 && StatsPlayer[iClient].iDeaths > 0;
-	char cFormatKDR[32];
 	if (bZero)
-		Format(cFormatKDR, sizeof(cFormatKDR), "Kills/Deaths Ratio: %.2f", (StatsPlayer[iClient].iKills / StatsPlayer[iClient].iDeaths));
+		Format(sFormatText, sizeof(sFormatText), "Kills/Deaths Ratio: %.2f", (StatsPlayer[iClient].iKills / StatsPlayer[iClient].iDeaths));
 	else
-		Format(cFormatKDR, sizeof(cFormatKDR), "Kills/Deaths Ratio: 0.0");
-	menu.AddItem("2", cFormatKDR, ITEMDRAW_DISABLED);
+		Format(sFormatText, sizeof(sFormatText), "Kills/Deaths Ratio: 0.0");
+	menu.AddItem("2", sFormatText, ITEMDRAW_DISABLED);
 
-	char cFormatPoints[32];
-	Format(cFormatPoints, sizeof(cFormatPoints), "Points: %i", StatsPlayer[iClient].iPoints);
-	menu.AddItem("3", cFormatPoints, ITEMDRAW_DISABLED);
-	char cFormatPointsGained[32];
+	Format(sFormatText, sizeof(sFormatText), "Points: %i", StatsPlayer[iClient].iPoints);
+	menu.AddItem("3", sFormatText, ITEMDRAW_DISABLED);
 	int iSavedPoints = StatsPlayer[iClient].savedPoints;
 	int iCurrentPoints = StatsPlayer[iClient].iPoints;
 	if (iCurrentPoints >= iSavedPoints) 
-		Format(cFormatPointsGained, sizeof(cFormatPointsGained), "Points gained: +%i", (iCurrentPoints - iSavedPoints));
+		Format(sFormatText, sizeof(sFormatText), "Points gained: +%i", (iCurrentPoints - iSavedPoints));
 	else
-		Format(cFormatPointsGained, sizeof(cFormatPointsGained), "Points gained: -%i", (iSavedPoints - iCurrentPoints));
-	menu.AddItem("4", cFormatPointsGained, ITEMDRAW_DISABLED);
-
-	char cFormatCoins[32];
-	Format(cFormatCoins, sizeof(cFormatCoins), "Coins: %i", StatsPlayer[iClient].iCoins);
-	menu.AddItem("5", cFormatCoins, ITEMDRAW_DISABLED);
-
-	char cFormatPlaytime[64];
-	Format(cFormatPlaytime, sizeof(cFormatPlaytime), "Playtime: %s", GeneratePlaytimeString(iSeconds));
-	menu.AddItem("6", cFormatPlaytime, ITEMDRAW_DISABLED);
+		Format(sFormatText, sizeof(sFormatText), "Points gained: -%i", (iSavedPoints - iCurrentPoints));
+	menu.AddItem("4", sFormatText, ITEMDRAW_DISABLED);
+	Format(sFormatText, sizeof(sFormatText), "Coins: %i", StatsPlayer[iClient].iCoins);
+	menu.AddItem("5", sFormatText, ITEMDRAW_DISABLED);
+	Format(sFormatText, sizeof(sFormatText), "Playtime: %s", GeneratePlaytimeString(iSeconds));
+	menu.AddItem("6", sFormatText, ITEMDRAW_DISABLED);
 	menu.ExitButton = true;
 	menu.ExitBackButton = true;
 	menu.Display(iClient, MENU_TIME_FOREVER);
@@ -322,25 +350,17 @@ public int UserStatsMenuHandle(Menu menu, MenuAction action, int iClient, int iI
 public void DrawUserRankings(int iClient) {
 	Menu menu = new Menu(UserRankingsMenuHandle);
 	menu.SetTitle("Your Rankings");
-	char sFormatPoints[48];
-	Format(sFormatPoints, sizeof(sFormatPoints), "Points: #%i", GetRanking(GetSteamId(iClient), "points"));
-	menu.AddItem("0", sFormatPoints, ITEMDRAW_DISABLED);
-
-	char sFormatCoins[48];
-	Format(sFormatCoins, sizeof(sFormatCoins), "Coins: #%i", GetRanking(GetSteamId(iClient), "coins"));
-	menu.AddItem("1", sFormatCoins, ITEMDRAW_DISABLED);
-
-	char sFormatKills[48];
-	Format(sFormatKills, sizeof(sFormatKills), "Kills: #%i", GetRanking(GetSteamId(iClient), "kills"));
-	menu.AddItem("2", sFormatKills, ITEMDRAW_DISABLED);
-	
-	char sFormatTopSpeed[48];
-	Format(sFormatTopSpeed, sizeof(sFormatTopSpeed), "Top Speed: #%i", GetRanking(GetSteamId(iClient), "topspeed"));
-	menu.AddItem("3", sFormatTopSpeed, ITEMDRAW_DISABLED);
-
-	char sFormatPlayTime[48];
-	Format(sFormatPlayTime, sizeof(sFormatPlayTime), "Playtime: #%i", GetRanking(GetSteamId(iClient), "playtime"));
-	menu.AddItem("4", sFormatPlayTime, ITEMDRAW_DISABLED);
+	char sFormatText[64];
+	Format(sFormatText, sizeof(sFormatText), "Points: #%i", GetRanking(GetSteamId(iClient), "points"));
+	menu.AddItem("0", sFormatText, ITEMDRAW_DISABLED);
+	Format(sFormatText, sizeof(sFormatText), "Coins: #%i", GetRanking(GetSteamId(iClient), "coins"));
+	menu.AddItem("1", sFormatText, ITEMDRAW_DISABLED);
+	Format(sFormatText, sizeof(sFormatText), "Kills: #%i", GetRanking(GetSteamId(iClient), "kills"));
+	menu.AddItem("2", sFormatText, ITEMDRAW_DISABLED);
+	Format(sFormatText, sizeof(sFormatText), "Top Speed: #%i", GetRanking(GetSteamId(iClient), "topspeed"));
+	menu.AddItem("3", sFormatText, ITEMDRAW_DISABLED);
+	Format(sFormatText, sizeof(sFormatText), "Playtime: #%i", GetRanking(GetSteamId(iClient), "playtime"));
+	menu.AddItem("4", sFormatText, ITEMDRAW_DISABLED);
 	menu.ExitBackButton = true;
 	menu.ExitButton = true;
 	menu.Display(iClient, MENU_TIME_FOREVER);

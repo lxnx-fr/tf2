@@ -1,5 +1,23 @@
 "Phrases"
 {
+
+    "Command_ListPlayers_Start"
+    {
+        "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}List of connected Players | Start"
+    }
+    "Command_ListPlayers_Entry"
+    {
+        /**
+         * {1} - Client Player Id 
+         * {2} - Player Name
+         */
+        "#format"   "{1:i},{2:N}"
+        "en"    "{black}» {default}Client Index: {dodgerblue}{1} {default}Nickname: {dodgerblue}{2}"
+    }
+    "Command_ListPlayers_End"
+    {
+        "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}List of connected Players | End"
+    }
     "Command_Self_Disabled"
     {
         "en"    "{mediumpurple}ɢᴏᴅ {black}» {default}You disabled Godmode for yourself."

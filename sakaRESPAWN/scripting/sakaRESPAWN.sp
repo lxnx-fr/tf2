@@ -36,7 +36,6 @@ public bool IsEntityConnectedClient(int iEntity) {
 
 public Action RespawnCommand(int iClient, int iArgs) {	
 	if (iArgs == 1) {
-		
 		char sTarget[MAX_NAME_LENGTH]; 
 		GetCmdArg(1, sTarget, sizeof(sTarget)); 
 		if (StrEqual(sTarget, "lp", false) || StrEqual(sTarget, "listplayers", false)){

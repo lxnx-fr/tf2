@@ -19,7 +19,7 @@ enum struct PlayerInfo {
 }
 PlayerInfo GodPlayer[MAXPLAYERS+1];
 
-public Plugin myinfo ={
+public Plugin myinfo = {
 	name = PLUGIN_NAME,
 	author = PLUGIN_AUTHOR,
 	description = PLUGIN_DESCRIPTION,
@@ -27,7 +27,7 @@ public Plugin myinfo ={
 	url = PLUGIN_URL
 }
 
-public void OncPluginStart() {
+public void OnPluginStart() {
 	PrintToServer("[sakaGOD] Enabling Plugin (Version %s)", PLUGIN_VERSION);
 	LoadTranslations("sakagod.phrases.txt");
 	RegAdminCmd("sm_god", GodCommand, ADMFLAG_KICK);
@@ -53,47 +53,57 @@ public Action GodCommand(int iClient, int iArgs) {
 	} else if (iArgs == 1) {
 		char sTarget[MAX_NAME_LENGTH]; 
 		GetCmdArg(1, sTarget, sizeof(sTarget)); 
-		char sTargetName[MAX_TARGET_LENGTH]; 
-		int iTargetList[MAXPLAYERS]; 
-		int iTargetCount; 
-		bool bTnIsMl; 
-		if ((iTargetCount = ProcessTargetString(sTarget, iClient, iTargetList, MAXPLAYERS, COMMAND_FILTER_NO_BOTS, sTargetName, sizeof(sTargetName), bTnIsMl)) <= 0) {
-            int iBackupTarget = StringToInt(sTarget);
-            if (StrContains(sTarget, "STEAM_", false) != -1) {
-                /* steamid as target given */
-                char sSteamId[64];
-                Format(sSteamId, sizeof(sSteamId), "%s", sTarget);
-                ReplaceString(sSteamId, sizeof(sSteamId), "+", ":", false);
-                /* format to correct steamid & setting it as target for the client */
-                /* setting command target to -1 if no online player was found */
-                iTargetList[0] = GetPlayerIndex(sSteamId);
-                
-            } else if (IsEntityConnectedClient(iBackupTarget) && !IsFakeClient(iBackupTarget))  {
-                /* client index as target given -> setting command target to client index */
-                iTargetList[0] = iBackupTarget;
-            } else {
-                /* no matching client index / client id / client name or steamid found -> abort */
-                CPrintToChat(iClient, "%t", "Command_NoUserFound", sTarget);
-                return Plugin_Handled;
+
+		if (StrEqual(sTarget, "lp") || StrEqual(sTarget, "listplayers")) {
+			CPrintToChat(iClient, "%t", "Command_ListPlayers_Start");
+			for (int client = 0; client <= MaxClients; client++) {
+				if (IsEntityConnectedClient(client) && !IsFakeClient(client)) {
+					CPrintToChat(iClient, "%t", "Command_ListPlayers_Entry", client, client);
+				}
 			}
-        }
-        /* if target count is over 1: abort */ 
-		if (iTargetList[0] == -1) {
-			CPrintToChat(iClient, "%t", "Command_NoUserFound", sTarget);
-			return Plugin_Handled;
-		}
-		if (iTargetCount > 1) {
-			CPrintToChat(iClient, "%t", "Command_NoMultipleTargets");
-			return Plugin_Handled;
-        }
-		if (GodPlayer[iTargetList[0]].bInGodMode) {
-			GodPlayer[iTargetList[0]].bInGodMode = false;
-			CPrintToChat(iClient, "Command_Other_Disabled", iTargetList[0]);
-			return Plugin_Handled;
+			CPrintToChat(iClient, "%t", "Command_ListPlayers_End");
 		} else {
-			GodPlayer[iTargetList[0]].bInGodMode = true;
-			CPrintToChat(iClient, "Command_Other_Enabled", iTargetList[0]);
-			return Plugin_Handled;
+			char sTargetName[MAX_TARGET_LENGTH]; 
+			int iTargetList[MAXPLAYERS]; 
+			int iTargetCount; 
+			bool bTnIsMl; 
+			if ((iTargetCount = ProcessTargetString(sTarget, iClient, iTargetList, MAXPLAYERS, COMMAND_FILTER_NO_BOTS, sTargetName, sizeof(sTargetName), bTnIsMl)) <= 0) {
+            	int iBackupTarget = StringToInt(sTarget);
+            	if (StrContains(sTarget, "STEAM_", false) != -1) {
+                	/* steamid as target given */
+                	char sSteamId[64];
+                	Format(sSteamId, sizeof(sSteamId), "%s", sTarget);
+                	ReplaceString(sSteamId, sizeof(sSteamId), "+", ":", false);
+                	/* format to correct steamid & setting it as target for the client */
+                	/* setting command target to -1 if no online player was found */
+                	iTargetList[0] = GetPlayerIndex(sSteamId);
+            	} else if (IsEntityConnectedClient(iBackupTarget) && !IsFakeClient(iBackupTarget))  {
+                	/* client index as target given -> setting command target to client index */
+                	iTargetList[0] = iBackupTarget;
+           		} else {
+                	/* no matching client index / client id / client name or steamid found -> abort */
+                	CPrintToChat(iClient, "%t", "Command_NoUserFound", sTarget);
+                	return Plugin_Handled;
+				}
+        	}
+			/* if target count is over 1: abort */ 
+			if (iTargetList[0] == -1) {
+				CPrintToChat(iClient, "%t", "Command_NoUserFound", sTarget);
+				return Plugin_Handled;
+			}
+			if (iTargetCount > 1) {
+				CPrintToChat(iClient, "%t", "Command_NoMultipleTargets");
+				return Plugin_Handled;
+			}
+			if (GodPlayer[iTargetList[0]].bInGodMode) {
+				GodPlayer[iTargetList[0]].bInGodMode = false;
+				CPrintToChat(iClient, "%t", "Command_Other_Disabled", iTargetList[0]);
+				return Plugin_Handled;
+			} else {
+				GodPlayer[iTargetList[0]].bInGodMode = true;
+				CPrintToChat(iClient, "%t", "Command_Other_Enabled", iTargetList[0]);
+				return Plugin_Handled;
+			}
 		}
 	} else {
 		CPrintToChat(iClient, "%t", "Command_Usage");
