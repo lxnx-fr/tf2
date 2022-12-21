@@ -48,4 +48,16 @@
     {
         "en"    "{mediumpurple}sᴏʟᴏ {black}» {default}Cleared Solo Queue from BLUE Team"
     }
+    "TeamChange_ToSpectator"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {red}You were removed from Solo Queue because you changed your Team to Spectator."
+    }
+    "TeamChange_BlueToRed"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {default}You were moved from the {blue}BLUE {default}Solo Queue to the {red}RED{default}."
+    }
+    "TeamChange_RedToBlue"
+    {
+        "en"    "{mediumpurple}sᴏʟᴏ {black}» {default}You were moved from the {red}RED {default}Solo Queue to the {blue}BLUE{default}."
+    }
 }

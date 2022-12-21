@@ -30,7 +30,8 @@
          * {1} - Player Name
          * {2} - Rocket Speed in mph
          * {3} - Rocket Deflections
-         * {4} - Rocket Speed in Hammer units
+         * {4} - ('Deflection' / 'Deflections')
+         * {5} - Rocket Speed in Hammer units
          */
         "#format"   "{1:N},{2:.0f},{3:i},{4:s},{5:.0f}"
         "en"    "{mediumpurple}{1} {black}: {dodgerblue}{2}{default} mph ({dodgerblue}{3}{default} {4} | {dodgerblue}{5}{default} Admin Speed)"

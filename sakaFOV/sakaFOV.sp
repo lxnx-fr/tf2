@@ -3,15 +3,15 @@
 
 #include <sourcemod>
 #include <sdktools>
-#include <morecolors>
+#include <multicolors>
 #include <clientprefs>
 #include <tf2>
 
-#define PLUGIN_VERSION "1.0"
-#define PLUGIN_NAME "sakaFOV"
-#define PLUGIN_AUTHOR "ѕαĸα"
-#define PLUGIN_DESCRIPTION "Change Field of View"
-#define PLUGIN_URL "https://tf2.l03.dev/"
+#define PLUGIN_VERSION 		"1.0"
+#define PLUGIN_NAME 		"sakaFOV"
+#define PLUGIN_AUTHOR 		"ѕαĸα"
+#define PLUGIN_DESCRIPTION 	"Change Field of View"
+#define PLUGIN_URL 			"https://tf2.l03.dev/"
 
 public Plugin myinfo = {
   name = PLUGIN_NAME,
@@ -25,7 +25,7 @@ Handle hFOVCookie;
 
 public void OnPluginStart() {
 	PrintToServer("[sakaFOV] Enabling Plugin (Version %s)", PLUGIN_VERSION);
-	hFOVCookie = RegClientCookie("sakaFOV", "Client Desired FOV", CookieAccess_Private);
+	hFOVCookie = RegClientCookie("unrestricted_fov", "Client Desired FOV", CookieAccess_Private);
 	RegConsoleCmd("sm_fov", FovCommand);
 	HookEvent("player_spawn", PlayerSpawnEvent);
 }

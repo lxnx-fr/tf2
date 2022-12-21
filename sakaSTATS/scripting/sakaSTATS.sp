@@ -15,11 +15,10 @@
 #define PLUGIN_AUTHOR 			"ѕαĸα"
 #define PLUGIN_DESCRIPTION 		"Collects statistics"
 #define PLUGIN_URL 				"https://tf2.l03.dev/"
-#define SQL_QUERY_CREATE "CREATE TABLE IF NOT EXISTS sakaStats (steamid VARCHAR(100), name VARCHAR(100), kills INT, deaths INT, lastLogout INT, firstLogin INT, lastLogin INT, playtime INT, coins INT, points INT, topspeed INT, deflections INT);"
+#define SQL_QUERY_CREATE 		"CREATE TABLE IF NOT EXISTS sakaStats (steamid VARCHAR(100), name VARCHAR(100), kills INT, deaths INT, lastLogout INT, firstLogin INT, lastLogin INT, playtime INT, coins INT, points INT, topspeed INT, deflections INT);"
 
 Handle DB = INVALID_HANDLE;
 
-/* Cached player data */
 enum struct CachedStats {
 	char sName[255];
 	char sCountry[255];
@@ -37,13 +36,10 @@ enum struct CachedStats {
 	bool bPlayerDied;
 }
 
-
 bool bStatsEnabled = false;
 bool bBotFound = false;
 
 CachedStats StatsPlayer[MAXPLAYERS + 1];
-
-//bool bStatsEnabled = false;
 
 public Plugin myinfo = {
 	name = PLUGIN_NAME,
@@ -93,7 +89,7 @@ public void InitDatabase(bool bConnect) {
 		DB = SQL_Connect("sakastats", true, sError, sizeof(sError));
 		//DB = SQL_ConnectCustom(DB_KEYVALUES, sError, sizeof(sError), false);
 		if (DB == INVALID_HANDLE) {
-	    	PrintToServer("[sakaSTATS] Could not connect to datebase: %s", sError);
+	    	PrintToServer("[sakaSTATS] Could not connect to database: %s", sError);
 	    	CloseHandle(DB);
 		}
 		PrintToServer("[sakaSTATS] Connecting to database...");
@@ -173,15 +169,12 @@ public void OnClientDisconnect(int iClient) {
 	}*/
 	LoadPlayerToDB(iClient);
 }
-
 stock bool IsPlayerVsBot() {
 	bool bBot = false;
 	for (int i = 0; i <= MaxClients; i++) {
-		if (IsValidClient(i)) {
-			if (IsFakeClient(i)) {
+		if (IsEntityConnectedClient(i) && IsFakeClient(i)) {
 				bBot = true;
 				break;
-			}
 		}
 	}
 	return bBot;
@@ -202,12 +195,9 @@ public void TFDB_OnRocketDeflect(int iIndex, int iEntity, int iOwner) {
 	}
 }
 stock int PlayerCountWithoutBots() {
-	/**
-	 * Count every player, that is connected, not a bot and his team is red or blue
-	 */
 	int iCount = 0;
 	for (int i = 1; i < MaxClients; i++) {
-		if (IsClientConnected(i) && !IsFakeClient(i) && (GetClientTeam(i) == 2 || GetClientTeam(i) == 3)) {
+		if (IsEntityConnectedClient(i) && IsClientConnected(i) && !IsFakeClient(i) && (GetClientTeam(i) == 2 || GetClientTeam(i) == 3)) {
 			iCount++;
 		}
 	}
@@ -217,14 +207,14 @@ public Action RoundStartEvent(Handle hEvent, char[] strEventName, bool bDontBroa
 	bBotFound = IsPlayerVsBot();
 	if (PlayerCountWithoutBots() >=3 ) {
 		if (!bStatsEnabled) {
-			CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are now enabled. Enough Player are Online! ({dodgerblue}%i{default}/{dodgerblue}3{default})", PlayerCountWithoutBots());
+			CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are now enabled ({dodgerblue}%i{default}/{dodgerblue}3{default})", PlayerCountWithoutBots());
 		}
 		bStatsEnabled = true; 
 	} else {
 		bStatsEnabled = false;
-		CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are disabled. Not enough Players Online ({dodgerblue}%i{default}/{dodgerblue}3{default})", PlayerCountWithoutBots());
+		CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are disabled. Not enough active Players ({dodgerblue}%i{default}/{dodgerblue}3{default})", PlayerCountWithoutBots());
 	}
-	return Plugin_Handled;
+	return Plugin_Continue;
 }
 
 public Action RoundEndEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
@@ -321,7 +311,6 @@ public void DrawUserStats(int iClient) {
 	else
 		Format(sFormatText, sizeof(sFormatText), "Kills/Deaths Ratio: 0.0");
 	menu.AddItem("2", sFormatText, ITEMDRAW_DISABLED);
-
 	Format(sFormatText, sizeof(sFormatText), "Points: %i", StatsPlayer[iClient].iPoints);
 	menu.AddItem("3", sFormatText, ITEMDRAW_DISABLED);
 	int iSavedPoints = StatsPlayer[iClient].savedPoints;
@@ -402,7 +391,7 @@ public int RankingSelectorMenuHandle(Menu menu, MenuAction action, int iClient, 
 }
 public void DrawPlayerRanking(int iClient, char[] sRankingType) {
 	Menu menu = new Menu(PlayerRankingMenuHandle);
-	menu.SetTitle("Menu | Top 100");
+	menu.SetTitle("Stats | Top 100");
 	char sQuery[255];
 	Format(sQuery, sizeof(sQuery), "SELECT steamid, name, %s FROM sakaStats ORDER BY %s DESC LIMIT 100;", sRankingType, sRankingType);
 	DBResultSet rsQuery = SQL_Query(DB, sQuery, sizeof(sQuery));
@@ -449,7 +438,7 @@ public int PlayerRankingMenuHandle(Menu menu, MenuAction action, int iClient, in
 }
 public void DrawNextPlayers(int iClient) {
 	Menu menu = new Menu(NextPlayersMenuHandle);
-	menu.SetTitle("Menu | Next 10 Players");
+	menu.SetTitle("Stats | Next 10 Players");
 	int iPlayerRank = GetRanking(GetSteamId(iClient), "points");
 	int iCurrentPoints = StatsPlayer[iClient].iPoints;
 	int iNextPlayers = iPlayerRank - 11;
@@ -677,7 +666,7 @@ stock char[] GetUserByRank(int iRank, char[] sStatistic, int iIdentifier) {
 	if (rsQuery == null) {
 		char sError[255];
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] GetUserByRank() Failed to Query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] GetUserByRank(Error) Failed to Query (error: %s)", sError);
 	} else {
 		int iCurrentRow = 0;
 		while (iCurrentRow <= iRank) {
@@ -702,7 +691,7 @@ stock int GetRowCount() {
 	if (rsQuery == null) {
 		char sError[255];
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] GetRowCount() Failed to Query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] GetRowCount(Error) Failed to Query (error: %s)", sError);
 	} else iRowCount = SQL_GetRowCount(rsQuery);
 	return iRowCount;
 }
@@ -721,7 +710,7 @@ stock int GetRanking(char[] sSteamId, char[] sStatistic) {
 	if (rsQuery == null) {
 		char sError[255];
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] GetRanking() Failed to Query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] GetRanking(Error) Failed to Query (error: %s)", sError);
 	} else {
 		SQL_FetchRow(rsQuery);
 		iCurrentRank = SQL_FetchInt(rsQuery, 0);
@@ -748,7 +737,7 @@ stock bool PlayerExists(int iClient) {
 	if (rsQuery == null) {
 		char sError[255];
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] PlayerExists() Failed to Query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] PlayerExists(Error) Failed to Query (error: %s)", sError);
 		return false;
 	} else {
 		return SQL_GetRowCount(rsQuery) > 0;
@@ -760,11 +749,11 @@ stock bool GetPlayerCountry(int iClient) {
 	char sCountryName[255];
 	char sClientIP[128];
 	if (!GetClientIP(iClient, sClientIP, sizeof(sClientIP), true)) {
-		PrintToServer("[sakaSTATS] GetPlayerCountry() IP-Adress not found: %N", iClient);
+		PrintToServer("[sakaSTATS] GetPlayerCountry(Error) IP-Adress not found: %N", iClient);
 		bIPFailed = true;
 	}
 	if (!GeoipCountry(sClientIP, sCountryName, 255) || bIPFailed) {
-		PrintToServer("[sakaSTATS] GetPlayerCountry() Country not found: %N", iClient);
+		PrintToServer("[sakaSTATS] GetPlayerCountry(Error) Country not found: %N", iClient);
 		bCountryFailed = true;
 	}
 	
@@ -775,13 +764,13 @@ public void CreatePlayer(int iClient, bool bMessage) {
 	char sQuery[500];
 	char sClientName[MAX_NAME_LENGTH];
 	GetClientName(iClient, sClientName, sizeof(sClientName));
-	PrintToServer("[sakaSTATS] CreatePlayer(): %s", sClientName);
+	PrintToServer("[sakaSTATS] CreatePlayer(Start): %N", iClient);
 	int iLoginTime = GetTime();
 	Format(sQuery, sizeof(sQuery), "INSERT INTO sakaStats (steamid,name,kills,deaths,lastLogout,firstLogin,lastLogin,playtime,coins,points,topSpeed,deflections) VALUES ('%s', '%s', '0', '0', '0', '%i', '%i', '0', '0', '1000', '0', '0');", GetSteamId(iClient), sClientName, iLoginTime, iLoginTime);
 	if (!SQL_FastQuery(DB, sQuery)){ 
 		char sError[255]; 
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] CreatePlayer() Failed to Query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] CreatePlayer(Error) Failed to Query (error: %s)", sError);
 	}
 	StatsPlayer[iClient].sName = sClientName;
 	StatsPlayer[iClient].iLastLogout = 0;
@@ -795,18 +784,19 @@ public void CreatePlayer(int iClient, bool bMessage) {
 	StatsPlayer[iClient].iTopSpeed = 0;
 	StatsPlayer[iClient].iDeflections = 0;
 	StatsPlayer[iClient].savedPoints = 1000;
+	PrintToServer("[sakaSTATS] CreatePlayer(End): %N", iClient);
 	if (bMessage)
 		CreateTimer(3.0, WelcomeFirst, iClient);		
 }
 public void LoadPlayerFromDB(int iClient, bool bMessage) {
-	PrintToServer("[sakaSTATS] LoadPlayerFromDB() %N", iClient);
+	PrintToServer("[sakaSTATS] LoadPlayerFromDB(Start) %N", iClient);
 	char sQuery[255];
 	Format(sQuery, sizeof(sQuery), "SELECT * FROM sakaStats WHERE steamid ='%s';", GetSteamId(iClient));
 	DBResultSet rsQuery = SQL_Query(DB, sQuery);
 	if (rsQuery == null) {
 		char sError[255];
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] LoadPlayerFromDB() Failed to query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] LoadPlayerFromDB(Error) Failed to query (error: %s)", sError);
 	} else {
 		SQL_FetchRow(rsQuery);
 		StatsPlayer[iClient].iKills = SQL_FetchInt(rsQuery, 2);
@@ -823,7 +813,7 @@ public void LoadPlayerFromDB(int iClient, bool bMessage) {
 		char sClientName[MAX_NAME_LENGTH];
 		GetClientName(iClient, sClientName, sizeof(sClientName));
 		StatsPlayer[iClient].sName = sClientName;
-		PrintToServer("[sakaSTATS] LoadPlayerFromDB() %N", iClient);
+		PrintToServer("[sakaSTATS] LoadPlayerFromDB(End) %N", iClient);
 		if (bMessage)
 			CreateTimer(3.0, WelcomeBack, iClient);
 	}

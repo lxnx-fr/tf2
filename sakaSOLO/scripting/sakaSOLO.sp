@@ -30,10 +30,10 @@ enum struct SoloInfo {
     bool bSoloMode;
     bool bAnyTeam;
     bool bHasRespawned;
-    int iTeam;
     bool bCanSoloCommand;
-    int iDeaths;
     bool bNoDamage;
+    int iDeaths;
+    int iTeam;
     int iLastUsed;
 }
 SoloInfo SoloPlayer[MAXPLAYERS +1];
@@ -78,17 +78,6 @@ public void OnPluginEnd() {
     PrintToServer("[sakaSOLO] Disabling Plugin");
 }
 
-
-/**
- * Beispiel: 
- * 8 Spieler
- * 3 Team Rot
- * 4 Team Blau
- * 1 Zuschauer
- * 
- * Wenn A aus Blau /solo macht 
- */
-
 public void DrawSoloMenu(int iClient) {
     Menu menu = new Menu(SoloMenuHandle);
     menu.SetTitle("Choose your Solo Mode");
@@ -129,11 +118,9 @@ public int SoloMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) 
 stock bool IsRestOfTeamInSoloQueue(int iCurrentTeam) {
     int iCurrentTeamCount = TeamClientCount(iCurrentTeam);
     for (int i = 1; i <= MaxClients; i++) {
-        if (IsClientConnected(i)) {
-            if (GetClientTeam(i) == iCurrentTeam) {
-                if (IsPlayerInAnyTeamQueue(i) || IsPlayerInRedTeamQueue(i) || IsPlayerInBlueTeamQueue(i)) {
-                    iCurrentTeamCount--;
-                }
+        if (IsClientConnected(i) && GetClientTeam(i) == iCurrentTeam) {
+            if (IsPlayerInAnyTeamQueue(i) || IsPlayerInRedTeamQueue(i) || IsPlayerInBlueTeamQueue(i)) {
+                iCurrentTeamCount--;
             }
         }
     }
@@ -142,10 +129,8 @@ stock bool IsRestOfTeamInSoloQueue(int iCurrentTeam) {
 stock int TeamClientCount(int iTeam) {
     int iValue = 0;
     for (int i = 1; i <= MaxClients; i++) {
-        if (IsClientConnected(i)) {
-            if (GetClientTeam(i) == iTeam) {
-                iValue++;
-            }
+        if (IsClientConnected(i) && GetClientTeam(i) == iTeam) {
+            iValue++;
         }
     }
     return iValue;
@@ -164,6 +149,17 @@ stock bool IsPlayerInRedTeamQueue(int iClient) {
 }
 public void AddToAnyTeamQueue(int iClient) {
     int iCurrentTeam = GetClientTeam(iClient);
+    if (SoloPlayer[iClient].bSoloMode) {
+        CPrintToChat(iClient, "%t", "Command_Solo_NotUseRightNow");
+        return;
+    }
+    /**
+      * If Client can't execute Solo Command or is Observer -> Cancel
+      */
+    if (!SoloPlayer[iClient].bCanSoloCommand || IsClientObserver(iClient)) {
+        CPrintToChat(iClient, "%t", "Command_Solo_NotUseRightNow");
+        return;
+    }
     /**
      * If Client Team is not RED OR BLUE -> Cancel
      */
@@ -178,6 +174,9 @@ public void AddToAnyTeamQueue(int iClient) {
         CPrintToChat(iClient, "%t", "Command_Solo_RestOfTeamInSolo");
         return;
     }
+    /**
+     * Kill the Client if he is Alive
+     */
     if (IsPlayerAlive(iClient)) {
         ForcePlayerSuicide(iClient);
     }
@@ -188,9 +187,19 @@ public void AddToAnyTeamQueue(int iClient) {
     SoloPlayer[iClient].iTeam = iCurrentTeam;
     CPrintToChat(iClient, "%t", "Command_Solo_Activated", iClient);
 }
-
 public void AddToEnemyTeamQueue(int iClient) {
     int iCurrentTeam = GetClientTeam(iClient);
+    if (SoloPlayer[iClient].bSoloMode) {
+        CPrintToChat(iClient, "%t", "Command_Solo_NotUseRightNow");
+        return;
+    }
+    /**
+      * If Client can't execute Solo Command or is Observer -> Cancel
+      */
+    if (!SoloPlayer[iClient].bCanSoloCommand || IsClientObserver(iClient)) {
+        CPrintToChat(iClient, "%t", "Command_Solo_NotUseRightNow");
+        return;
+    }
     /**
      * If Client Team is not RED OR BLUE -> Cancel
      */
@@ -219,8 +228,16 @@ public void AddToEnemyTeamQueue(int iClient) {
     SoloPlayer[iClient].bHasRespawned = false;
     CPrintToChat(iClient, "%t", "Command_Solo_Activated", iClient);
 }
-
 public Action SoloCommand(int iClient, int iArgs) {
+    if (iArgs == 1) {
+        char sArgOne[32];
+        GetCmdArg(1, sArgOne, sizeof(sArgOne));
+        if (StrEqual(sArgOne, "info", false)) {
+            CReplyToCommand(iClient, "{mediumpurple}sᴏʟᴏ {black}» {default}Solo System rewritten by {dodgerblue}ѕαĸα {default}(Version {dodgerblue}%s{default})", PLUGIN_VERSION);
+            CReplyToCommand(iClient, "{mediumpurple}sᴏʟᴏ {black}» {default} Commands:");
+            CReplyToCommand(iClient, "{mediumpurple}sᴏʟᴏ {black}» {default} /solo - Open Solo Menu");
+        }
+    }
     /**
      * If Client is not InGame -> Cancel
      */
@@ -237,7 +254,7 @@ public Action SoloCommand(int iClient, int iArgs) {
     }*/
     //SoloPlayer[iClient].iLastUsed = GetTime();
     /**
-     * If Client Team is not RED OR BLUE -> Cancel
+     * If Client Team is not Red OR Blue -> Cancel
      */
     int iTeam = GetClientTeam(iClient);
     if (iTeam == 1 || iTeam == 0) {
@@ -293,7 +310,6 @@ public Action SoloCommand(int iClient, int iArgs) {
     }
     return Plugin_Handled;
 }
-
 public void OnClientDisconnect(int iClient) {
     /**
      * If Client is Connected & is a Bot -> Cancel
@@ -304,28 +320,110 @@ public void OnClientDisconnect(int iClient) {
      */
     if (!IsClientInGame(iClient)) return;
     /**
-     * If Client is in Team RED/BLUE/NOPREFERENCE Queue, remove him from SOLO queue
+     * If Client is in Team Red/Blue/NoPref Queue, remove him from Solo queue
      */
     if (IsPlayerInAnyTeamQueue(iClient)) {
         int iIndex = FindValueInArray(hNoPreferenceQueue, GetClientUserId(iClient));
         if (iIndex != -1) RemoveFromArray(hNoPreferenceQueue, iIndex);
-    }
-    if (IsPlayerInBlueTeamQueue(iClient)) {
+    } else if (IsPlayerInBlueTeamQueue(iClient)) {
         int iIndex = FindValueInArray(hBlueQueue, GetClientUserId(iClient));
         if (iIndex != -1) RemoveFromArray(hBlueQueue, iIndex);
-    }
-    if (IsPlayerInRedTeamQueue(iClient)) {
+    } else if (IsPlayerInRedTeamQueue(iClient)) {
+        int iIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient));
+        if (iIndex != -1) RemoveFromArray(hRedQueue, iIndex);
+    } else {
+        /**
+         * If player was not in Queue and Rest of the Team is in Solo
+         */
+        int iTeam = SoloPlayer[iClient].iTeam;
+        if (IsRestOfTeamInSoloQueue(iTeam)) {
+            if (iTeam == 2) {   
+                /**
+                 * If Team is Red/Blue, get the first Client to respawn, because the last alive client that was not in queue disconnected
+                 */
+                int iFirstClient = -1;
+                /**
+                 * If Solo Queue from Red has players, take first from Red Queue
+                 */
+                if (GetArraySize(hRedQueue) > 0) {
+                    iFirstClient = GetClientOfUserId(GetArrayCell(hRedQueue, 0));
+                /**
+                 * If Solo Queue from Red is empty, take first from NoPref Queue
+                 */
+                } else if (GetArraySize(hNoPreferenceQueue) > 0) {
+                    iFirstClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, 0));
+                /**
+                 * If No Queue Player was found -> Cancel
+                 */
+                } else return;
+                /**
+                 * If Solo Queue Player was found and hasn't been respawned yet
+                 * -> Respawn First Player
+                 */
+                if (iFirstClient != -1 && !SoloPlayer[iFirstClient].bHasRespawned) {
+                    TF2_RespawnPlayer(iFirstClient);
+                    SoloPlayer[iFirstClient].bHasRespawned = false;
+                    iLastRespawnTime = GetGameTickCount();
+                    iLastRespawnedClient = iFirstClient;
+                    SDKHook(iFirstClient, SDKHook_OnTakeDamage, OnTakeDamage);
+                    SoloPlayer[iFirstClient].bNoDamage = true;
+                    ClientCommand(iFirstClient, "playgamesound \"%s\"", "ambient\\alarms\\doomsday_lift_alarm.wav");
+                    /**
+                     * Because last alive player disconnected, respawned client got removed from queue
+                     */
+                    CreateTimer(1.0, RemoveFromQueueTimer, iClient);
+                }
+            } else if (iTeam == 3) {
+                int iFirstClient = -1;
+                /**
+                 * If Solo Queue from Red has players, take first from Red Queue
+                 */
+                if (GetArraySize(hBlueQueue) > 0) {
+                    iFirstClient = GetClientOfUserId(GetArrayCell(hBlueQueue, 0));
+                /**
+                 * If Solo Queue from Red is empty, take first from NoPref Queue
+                 */
+                } else if (GetArraySize(hNoPreferenceQueue) > 0) {
+                    iFirstClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, 0));
+                /**
+                 * If No Queue Player was found -> Cancel
+                 */
+                } else return;
+                /**
+                 * If Solo Queue Player was found and hasn't been respawned yet
+                 * -> Respawn First Player
+                 */
+                if (iFirstClient != -1 && !SoloPlayer[iFirstClient].bHasRespawned) {
+                    TF2_RespawnPlayer(iFirstClient);
+                    SoloPlayer[iFirstClient].bHasRespawned = false;
+                    iLastRespawnTime = GetGameTickCount();
+                    iLastRespawnedClient = iFirstClient;
+                    SDKHook(iFirstClient, SDKHook_OnTakeDamage, OnTakeDamage);
+                    SoloPlayer[iFirstClient].bNoDamage = true;
+                    ClientCommand(iFirstClient, "playgamesound \"%s\"", "ambient\\alarms\\doomsday_lift_alarm.wav");
+                    CreateTimer(1.0, RemoveFromQueueTimer, iClient);
+                }
+            }
+        }      
+    } 
+}
+public Action RemoveFromQueueTimer(Handle hTimer, int iClient) {
+    if (IsPlayerInAnyTeamQueue(iClient)) {
+        int iIndex = FindValueInArray(hNoPreferenceQueue, GetClientUserId(iClient));
+        if (iIndex != -1) RemoveFromArray(hNoPreferenceQueue, iIndex);
+    } else if (IsPlayerInBlueTeamQueue(iClient)) {
+        int iIndex = FindValueInArray(hBlueQueue, GetClientUserId(iClient));
+        if (iIndex != -1) RemoveFromArray(hBlueQueue, iIndex);
+    } else if (IsPlayerInRedTeamQueue(iClient)) {
         int iIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient));
         if (iIndex != -1) RemoveFromArray(hRedQueue, iIndex);
     }
-    
+    return Plugin_Continue;
 }
-
 
 public void OnMapEnd() {
     bMapChanged = true;
 }
-
 public void OnMapStart() {
     ClearArray(hRedQueue);
     ClearArray(hBlueQueue);
@@ -340,6 +438,10 @@ public Action MapStartTimer(Handle hTimer) {
     bMapChanged = false;
     return Plugin_Handled;
 }
+
+/**
+ * On Player Death
+ */
 public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast) {
     int iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
     /**
@@ -354,38 +456,33 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
     if (iTeam == 3 && GetArraySize(hBlueQueue) == 0 && GetArraySize(hNoPreferenceQueue) == 0) return Plugin_Continue;
 
     /**
-     * If Client Team is RED and PlayersAlive of RED are 1 -> Continue
+     * If Client Team is Red and PlayersAlive of Red are 1 -> Continue
      */
     if (iTeam == 2 && GetRedAlivePlayerCount() == 1) {
-        //CPrintToChatAll("(DEV-1) Team: Red, PlayerCount Alive: 1");
-        // If the client who died was not in RED QUEUE and not in NOPREFERENCE QUEUE -> Continue
         if (!IsPlayerInAnyTeamQueue(iClient) && !IsPlayerInRedTeamQueue(iClient)) {
-            int iFirstClient = -1;
-            //CPrintToChatAll("(DEV-2) Dead Client was not in RED/NOPREF Queue");
             /**
-             * If Solo Queue from RED Team has players, take next from RED Queue
+             * Client was not in the Red Queue or NoPref Queue
+             */
+            int iFirstClient = -1;
+            /**
+             * If Solo Queue from Red has players, take first from Red Queue
              */
             if (GetArraySize(hRedQueue) > 0) {
-                //CPrintToChatAll("(DEV-3) Got Client from Red Queue");
                 iFirstClient = GetClientOfUserId(GetArrayCell(hRedQueue, 0));
             /**
-             * If Solo Queue from RED Team is empty, take next from NoPreference Queue
+             * If Solo Queue from Red is empty, take first from NoPref Queue
              */
             } else if (GetArraySize(hNoPreferenceQueue) > 0) {
-                //CPrintToChatAll("(DEV-4) Got Client from NOPREF Queue");
                 iFirstClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, 0));
             /**
-             * If No Queue Players exist print error (is normally checked before?)
+             * If No Queue Player was found -> Cancel
              */
-            } else {
-                //CPrintToChatAll("(DEV-5) No Queue Client Found");
-            }
+            } else return Plugin_Continue;
             /**
-             * If Solo Queue Player exists and hasn't been respawned yet
-             * -> Respawn next player
+             * If Solo Queue Player was found and hasn't been respawned yet
+             * -> Respawn First Player
              */
             if (iFirstClient != -1 && !SoloPlayer[iFirstClient].bHasRespawned ) {
-                //CPrintToChatAll("(DEV-6) Respawning %N", iFirstClient);
                 TF2_RespawnPlayer(iFirstClient);
                 SoloPlayer[iFirstClient].bHasRespawned = true;
                 iLastRespawnTime = GetGameTickCount();
@@ -395,56 +492,42 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
                 ClientCommand(iFirstClient, "playgamesound \"%s\"", "ambient\\alarms\\doomsday_lift_alarm.wav");
             }
         } else {
-            int iNextIndex = -1;
-            iNextIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient)) + 1;
-            /*if (IsPlayerInAnyTeamQueue(iClient)) {
-                //CPrintToChatAll("(DEV-7) Dead Client was in NOPREF Queue");
-            } else if (IsPlayerInRedTeamQueue(iClient)) {
-                //CPrintToChatAll("(DEV-7) Dead Client was in RED Queue");
-            } else {
-                //CPrintToChatAll("(DEV-7) I hate this game");
-            }*/
-            
             /**
-             * If the last client who died was in a queue 
+             * Client was in Red Queue or NoPref Queue
              */
-          
+            int iNextIndex = -1;
+            /**
+             * Getting Next Client from Red Queue
+             */
+            iNextIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient)) + 1;
             bool bNoPreferencePlayer = false;
             /**
-             * If no next client from red queue is available or next index is -1
+             * If Next Array Index is bigger than Red Queue Size or equals 0
+             * -> Search in NoPref Queue
              */
-            //CPrintToChatAll("(DEV-8) Next Client from RED Queue: %i", iNextIndex);
-            if (iNextIndex >= GetArraySize(hRedQueue) || iNextIndex == 0) {
-                //CPrintToChatAll("(DEV-9) Skipping RED Queue");
-                /**
-                 * If also no next client from no preference queue is available or next index is -1, cancel
-                 */
+            if (iNextIndex > GetArraySize(hRedQueue) || iNextIndex == 0) {
                 bNoPreferencePlayer = true;
                 iNextIndex = FindValueInArray(hNoPreferenceQueue,  GetClientUserId(iClient)) + 1;
-                //CPrintToChatAll("(DEV-10) Next Client from NOPREF Queue: %i", iNextIndex);
-                if (iNextIndex >= GetArraySize(hNoPreferenceQueue) || iNextIndex == 0) {
-                    //CPrintToChatAll("(DEV-11) Skipping NOPREF Queue");
-                    return Plugin_Continue;
-                } 
+                /**
+                 * If Next Array Index is bigger than NoPref Queue Size or equals 0 -> Cancel
+                 */
+                if (iNextIndex > GetArraySize(hNoPreferenceQueue) || iNextIndex == 0) return Plugin_Continue;
             }
             
             int iNextClient = -1;
             /**
-             * Get next client index from RED or NOPREF Queue
+             * Get Next Client Index from Red Queue or NoPref Queue
              */
             if (bNoPreferencePlayer) {
                 iNextClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, iNextIndex));
-                //CPrintToChatAll("(DEV-12) Client Details: %N (%i)", iNextClient, iNextClient);
             } else {
                 iNextClient = GetClientOfUserId(GetArrayCell(hRedQueue, iNextIndex));
-                //CPrintToChatAll("(DEV-13) Client Details: %N (%i)", iNextClient, iNextClient);
             }
             /**
-             * If next client hasn't been respawned yet & client index is not -1
-             * -> Respawn next player
+             * If Next Client was found and hasn't been respawned yet
+             * -> Respawn Next player
              */
             if (!SoloPlayer[iNextClient].bHasRespawned && iNextClient != -1) {
-                //CPrintToChatAll("(DEV-14) Next is: %N", iNextClient);
                 TF2_RespawnPlayer(iNextClient);
                 SoloPlayer[iNextClient].bHasRespawned = true;
                 iLastRespawnTime = GetGameTickCount();
@@ -456,103 +539,98 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
         }
     }
     /**
-     * If Client Team is BLUE and PlayersAlive of BLUE are 1 -> Continue
+     * If Client Team is Blue and PlayersAlive of Blue are 1 -> Continue
      */
+
     if (iTeam == 3 && GetBlueAlivePlayerCount() == 1) {
-            CPrintToChatAll("(DEV-1) Team: Blue, PlayerCount Alive: 1");
-            // If the client who died was not in RED QUEUE and not in NOPREFERENCE QUEUE -> Continue
-            if (FindValueInArray(hBlueQueue, GetClientUserId(iClient)) == -1 && FindValueInArray(hNoPreferenceQueue, GetClientUserId(iClient))) {
-                int iFirstClient = -1;
-                CPrintToChatAll("(DEV-2) Dead Client was not in BLUE/NOPREF Queue");
+        if (!IsPlayerInAnyTeamQueue(iClient) && !IsPlayerInBlueTeamQueue(iClient)) {
+            /**
+             * Client was not in the Blue Queue or NoPref Queue
+             */
+            int iFirstClient = -1;
+            /**
+             * If Solo Queue from Blue has players, take first from Blue Queue
+             */
+            if (GetArraySize(hBlueQueue) > 0) {
+                iFirstClient = GetClientOfUserId(GetArrayCell(hBlueQueue, 0));
+            /**
+             * If Solo Queue from Blue is empty, take first from NoPref Queue
+             */
+            } else if (GetArraySize(hNoPreferenceQueue) > 0) {
+                iFirstClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, 0));
+            /**
+             * If No Queue Player was found -> Cancel
+             */
+            } else return Plugin_Continue;
+            /**
+             * If Solo Queue Player was found and hasn't been respawned yet
+             * -> Respawn First Player
+             */
+            if (iFirstClient != -1 && !SoloPlayer[iFirstClient].bHasRespawned ) {
+                TF2_RespawnPlayer(iFirstClient);
+                SoloPlayer[iFirstClient].bHasRespawned = true;
+                iLastRespawnTime = GetGameTickCount();
+                iLastRespawnedClient = iFirstClient;
+                SDKHook(iFirstClient, SDKHook_OnTakeDamage, OnTakeDamage);
+                SoloPlayer[iFirstClient].bNoDamage = true;
+                ClientCommand(iFirstClient, "playgamesound \"%s\"", "ambient\\alarms\\doomsday_lift_alarm.wav");
+            }
+        } else {
+            /**
+             * Client was in Red Queue or NoPref Queue
+             */
+            int iNextIndex = -1;
+            /**
+             * Getting Next Client from Blue Queue
+             */
+            iNextIndex = FindValueInArray(hBlueQueue, GetClientUserId(iClient)) + 1;
+            bool bNoPreferencePlayer = false;
+            /**
+             * If Next Array Index is bigger than Blue Queue Size or equals 0
+             * -> Search in NoPref Queue
+             */
+            if (iNextIndex > GetArraySize(hBlueQueue) || iNextIndex == 0) {
+                bNoPreferencePlayer = true;
+                iNextIndex = FindValueInArray(hNoPreferenceQueue,  GetClientUserId(iClient)) + 1;
                 /**
-                 * If Solo Queue from RED Team has players, take next from RED Queue
+                 * If Next Array Index is bigger than NoPref Queue Size or equals 0 -> Cancel
                  */
-                if (GetArraySize(hBlueQueue) > 0) {
-                    CPrintToChatAll("(DEV-3) Got Client from BLUE Queue");
-                    iFirstClient = GetClientOfUserId(GetArrayCell(hRedQueue, 0));
-                /**
-                 * If Solo Queue from RED Team is empty, take next from NoPreference Queue
-                 */
-                } else if (GetArraySize(hNoPreferenceQueue) > 0) {
-                    CPrintToChatAll("(DEV-4) Got Client from NOPREF Queue");
-                    iFirstClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, 0));
-                /**
-                 * If No Queue Players exist print error (is normally checked before?)
-                 */
-                } else {
-                    CPrintToChatAll("(DEV-5) No Queue Client Found");
-                }
-                /**
-                 * If Solo Queue Player exists and hasn't been respawned yet
-                 * -> Respawn next player
-                 */
-                if (iFirstClient != -1 && !SoloPlayer[iFirstClient].bHasRespawned ) {
-                    CPrintToChatAll("(DEV-6) Respawning %N", iFirstClient);
-                    TF2_RespawnPlayer(iFirstClient);
-                    SoloPlayer[iFirstClient].bHasRespawned = true;
-                    iLastRespawnTime = GetGameTickCount();
-                    iLastRespawnedClient = iFirstClient;
-                    SDKHook(iFirstClient, SDKHook_OnTakeDamage, OnTakeDamage);
-                    SoloPlayer[iFirstClient].bNoDamage = true;
-                    ClientCommand(iFirstClient, "playgamesound \"%s\"", "ambient\\alarms\\doomsday_lift_alarm.wav");
-                }
+                if (iNextIndex > GetArraySize(hNoPreferenceQueue) || iNextIndex == 0) return Plugin_Continue;
+            }
+            
+            int iNextClient = -1;
+            /**
+             * Get Next Client Index from Blue Queue or NoPref Queue
+             */
+            if (bNoPreferencePlayer) {
+                iNextClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, iNextIndex));
             } else {
-                CPrintToChatAll("(DEV-7) Dead Client was in a Queue");
-                /**
-                 * If the last client who died was in a queue 
-                 */
-                int iNextIndex = -1;
-                iNextIndex = FindValueInArray(hBlueQueue, GetClientUserId(iClient)) + 1;
-                bool bNoPreferencePlayer = false;
-                /**
-                 * If no next client from red queue is available or next index is -1
-                 */
-                CPrintToChatAll("(DEV-8) Next Client from BLUE Queue: %i", iNextIndex);
-                if (iNextIndex >= GetArraySize(hBlueQueue) || iNextIndex == 0) {
-                    CPrintToChatAll("(DEV-9) Skipping BLUE Queue");
-                    /**
-                     * If also no next client from no preference queue is available or next index is -1, cancel
-                     */
-                    bNoPreferencePlayer = true;
-                    iNextIndex = FindValueInArray(hNoPreferenceQueue,  GetClientUserId(iClient)) + 1;
-                    CPrintToChatAll("(DEV-10) Next Client from NOPREF Queue: %i", iNextIndex);
-                    if (iNextIndex >= GetArraySize(hNoPreferenceQueue) || iNextIndex == 0) {
-                        CPrintToChatAll("(DEV-11) Skipping NOPREF Queue");
-                        return Plugin_Continue;
-                    } 
-                }
-                
-                int iNextClient = -1;
-                /**
-                 * Get next client index from RED or NOPREF Queue
-                 */
-                if (bNoPreferencePlayer) {
-                    iNextClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, iNextIndex));
-                    CPrintToChatAll("(DEV-12) Client Details: %N (%i)", iNextClient, iNextClient);
-                } else {
-                    iNextClient = GetClientOfUserId(GetArrayCell(hBlueQueue, iNextIndex));
-                    CPrintToChatAll("(DEV-13) Client Details: %N (%i)", iNextClient, iNextClient);
-                }
-                /**
-                 * If next client hasn't been respawned yet & client index is not -1
-                 * -> Respawn next player
-                 */
-                if (!SoloPlayer[iNextClient].bHasRespawned && iNextClient != -1) {
-                    CPrintToChatAll("(DEV-14) Next is: %N", iNextClient);
-                    TF2_RespawnPlayer(iNextClient);
-                    SoloPlayer[iNextClient].bHasRespawned = true;
-                    iLastRespawnTime = GetGameTickCount();
-                    iLastRespawnedClient = iNextClient;
-                    SDKHook(iNextClient, SDKHook_OnTakeDamage, OnTakeDamage);
-                    SoloPlayer[iNextClient].bNoDamage = true;
-                    ClientCommand(iNextClient, "playgamesound \"%s\"", "ambient\\alarms\\doomsday_lift_alarm.wav");
-                }
+                iNextClient = GetClientOfUserId(GetArrayCell(hBlueQueue, iNextIndex));
+            }
+            /**
+             * If Next Client was found and hasn't been respawned yet
+             * -> Respawn Next player
+             */
+            if (!SoloPlayer[iNextClient].bHasRespawned && iNextClient != -1) {
+                TF2_RespawnPlayer(iNextClient);
+                SoloPlayer[iNextClient].bHasRespawned = true;
+                iLastRespawnTime = GetGameTickCount();
+                iLastRespawnedClient = iNextClient;
+                SDKHook(iNextClient, SDKHook_OnTakeDamage, OnTakeDamage);
+                SoloPlayer[iNextClient].bNoDamage = true;
+                ClientCommand(iNextClient, "playgamesound \"%s\"", "ambient\\alarms\\doomsday_lift_alarm.wav");
             }
         }
+    }
+
+
     /**
-     * If Solo Round started
+     * If Solo Round started, decrease death sound count
      */
     if (bSoloRoundStart) {
+        /**
+         * If Client Team is Red 
+         */
         if (iTeam == 2) {
             for (int i = 0; i < GetArraySize(hRedQueue); i++) {
                 int iQueuedClient = GetClientOfUserId(GetArrayCell(hRedQueue, i));
@@ -581,18 +659,24 @@ public Action RoundEndEvent(Handle hEvent, char[] sName, bool bDontBroadcast) {
         SoloPlayer[i].bCanSoloCommand = false;
         SoloPlayer[i].bHasRespawned = false;
     }
-    return Plugin_Handled;
+    return Plugin_Continue;
 }
 
 public Action RoundStartEvent(Handle hEvent, char[] sName, bool bDontBroadcast) {
     CreateTimer(0.3, RoundStartTimer);
-    return Plugin_Handled;
+    return Plugin_Continue;
 }
 
 public Action RoundStartTimer(Handle hTimer) {
-    if (GetTeamClientCount(2) <= 1 && GetTeamClientCount(3) <= 1) return Plugin_Handled;
+    /**
+     * If Team Client Count from Red and Blue are 1 -> Cancel
+     */
+    if (GetTeamClientCount(2) <= 1 && GetTeamClientCount(3) <= 1) return Plugin_Continue;
     bool bHasNames = false;
     char sNames[1024];
+    /**
+     * Kill Every Player that has enabled Solo Mode
+     */
     for (int i = 1; i < MaxClients; i++) {
         SoloPlayer[i].bCanSoloCommand = false;
         char sName[MAX_NAME_LENGTH];
@@ -611,21 +695,16 @@ public Action RoundStartTimer(Handle hTimer) {
     bSoloRoundStart = true;
     for (int i = 1; i < MaxClients; i++) {
         if (IsClientConnected(i) && SoloPlayer[i].bSoloMode) {
-            SoloPlayer[i].bCanSoloCommand = false;
             if (GetClientTeam(i) == 2)
-                if(IsPlayerInRedTeamQueue(i))
-                    SoloPlayer[i].iDeaths = GetRedAlivePlayerCount() + (FindValueInArray(hRedQueue, GetClientUserId(i)) - 1);
-                else
-                    SoloPlayer[i].iDeaths = GetRedAlivePlayerCount() + (FindValueInArray(hNoPreferenceQueue, GetClientUserId(i)) - 1);
-            if (GetClientTeam(i) == 3)
-                if(IsPlayerInBlueTeamQueue(i))
-                    SoloPlayer[i].iDeaths = GetBlueAlivePlayerCount() + (FindValueInArray(hBlueQueue, GetClientUserId(i)) - 1);
-                else
-                    SoloPlayer[i].iDeaths = GetBlueAlivePlayerCount() + (FindValueInArray(hNoPreferenceQueue, GetClientUserId(i)) - 1);
-
+                if(IsPlayerInRedTeamQueue(i)) SoloPlayer[i].iDeaths = GetRedAlivePlayerCount() + (FindValueInArray(hRedQueue, GetClientUserId(i)) - 1);
+                else SoloPlayer[i].iDeaths = GetRedAlivePlayerCount() + (FindValueInArray(hNoPreferenceQueue, GetClientUserId(i)) - 1);
+            if (GetClientTeam(i) == 3) {
+                if(IsPlayerInBlueTeamQueue(i)) SoloPlayer[i].iDeaths = GetBlueAlivePlayerCount() + (FindValueInArray(hBlueQueue, GetClientUserId(i)) - 1);
+                else SoloPlayer[i].iDeaths = GetBlueAlivePlayerCount() + (FindValueInArray(hNoPreferenceQueue, GetClientUserId(i)) - 1);
+            }
         }
     }
-    return Plugin_Handled;
+    return Plugin_Continue;
 }
 public Action RoundSetupEvent(Handle hEvent, char[] sName, bool bDontBroadcast) {
     bSoloRoundStart = true;
@@ -635,68 +714,91 @@ public Action RoundSetupEvent(Handle hEvent, char[] sName, bool bDontBroadcast) 
             SoloPlayer[i].bHasRespawned = false;
         }
     }
-    return Plugin_Handled;
+    return Plugin_Continue;
 }
 public Action PlayerTeamEvent(Handle hEvent, char[] sName, bool bDontBroadcast) {
     int iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
     /**
      * If Client is Connected and is a Bot -> Cancel
      */
-    if (IsClientConnected(iClient) && IsFakeClient(iClient)) return Plugin_Handled;
+    if (IsClientConnected(iClient) && IsFakeClient(iClient)) return Plugin_Continue;
     /**
      * If Client has Solo Mode activated
      */
+    int iTeam = GetEventInt(hEvent, "team");
+    int iOldTeam = GetEventInt(hEvent, "oldteam");
+    SoloPlayer[iClient].iTeam = iTeam;
     if (SoloPlayer[iClient].bSoloMode) {
-        int iTeam = GetEventInt(hEvent, "team");
-        int iOldTeam = GetEventInt(hEvent, "oldteam");
         /**
-         * If new team is spectator and client is not in NOPREFERENCE Queue
+         * If new Team is Spectator/Unassigned -> Remove Client from any Queues 
          */
-        if (iTeam == 0) {
-            if (iOldTeam == 2 && IsPlayerInRedTeamQueue(iClient)) {
+        if (iTeam == 0 || iTeam == 1) {
+            CPrintToChat(iClient, "%t", "TeamChange_ToSpectator");
+            if (IsPlayerInRedTeamQueue(iClient)) {
                 int iIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient));
                 if (iIndex != -1) RemoveFromArray(hRedQueue, iIndex);
             }
-            if (iOldTeam == 3 && IsPlayerInBlueTeamQueue(iClient)) {
-                    int iIndex = FindValueInArray(hBlueQueue, GetClientUserId(iClient));
-                    if (iIndex != -1) RemoveFromArray(hBlueQueue, iIndex);
+            if (IsPlayerInBlueTeamQueue(iClient)) {
+                int iIndex = FindValueInArray(hBlueQueue, GetClientUserId(iClient));
+                if (iIndex != -1) RemoveFromArray(hBlueQueue, iIndex);
+            }
+            if (IsPlayerInAnyTeamQueue(iClient)) {
+                int iIndex = FindValueInArray(hNoPreferenceQueue, GetClientUserId(iClient));
+                if (iIndex != -1) RemoveFromArray(hNoPreferenceQueue, iIndex);
             }
         }
         /**
-         * If new team is RED and client is not in NOPREFERENCE QUEUE and old team was BLUE
+         * If new Team is Red, Client is not in NoPref Queue, Client is in Blue Queue and old Team was Blue
          */
-        if (iTeam == 2 && iOldTeam == 3 && !IsPlayerInAnyTeamQueue(iClient)) {
+        if (iTeam == 2 && iOldTeam == 3 && !IsPlayerInAnyTeamQueue(iClient) && IsPlayerInBlueTeamQueue(iClient)) {
             int iIndex = FindValueInArray(hBlueQueue, GetClientUserId(iClient));
             if (iIndex != -1) RemoveFromArray(hBlueQueue, iIndex);
             PushArrayCell(hRedQueue, GetClientUserId(iClient));
+            CPrintToChat(iClient, "%t", "TeamChange_BlueToRed");
         }
         /**
-         * If new team is BLUE and client is not in NOPREFERENCE QUEUE and old team was RED
+         * If new Team is Blue, Client is not in NOPREF Queue, Client is in Red Queue and old Team was Red
          */
-        if (iTeam == 3 && iOldTeam == 2 && !IsPlayerInAnyTeamQueue(iClient)) {
+        if (iTeam == 3 && iOldTeam == 2 && !IsPlayerInAnyTeamQueue(iClient) && IsPlayerInRedTeamQueue(iClient)) {
             int iIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient));
             if (iIndex != -1) RemoveFromArray(hRedQueue, iIndex);
             PushArrayCell(hBlueQueue, GetClientUserId(iClient));
+            CPrintToChat(iClient, "%t", "TeamChange_RedToBlue");
         }
     }
     return Plugin_Continue;
 }
-
 public Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage, int &damagetype) {
-  if (IsPlayerAlive(iVictim) && SoloPlayer[iVictim].bSoloMode) {
-    fDamage = 0.0;
-  }
-  SDKUnhook(iVictim, SDKHook_OnTakeDamage, OnTakeDamage);
-  SoloPlayer[iVictim].bNoDamage = false;
-  return Plugin_Changed;
+    /**
+     * If Player is Alive, Solo Mode is Activated and NoDamage is enabled -> Continue
+     */
+    if (IsPlayerAlive(iVictim) && SoloPlayer[iVictim].bSoloMode && SoloPlayer[iVictim].bNoDamage) {
+        /**
+         * Change Damage to 0, Disable NoDamge, Unhook OnTakeDamage
+         */
+        fDamage = 0.0;
+        SDKUnhook(iVictim, SDKHook_OnTakeDamage, OnTakeDamage);
+        SoloPlayer[iVictim].bNoDamage = false;
+        return Plugin_Changed;
+    }
+    return Plugin_Continue;
 }
-
 public void OnGameFrame() {
+    /**
+     * If Last Respawned Client is not 0 or -1, Client is Connected, Client is Alive, NoDamage is enabled and GameTickCount bigger than LastRespawnTime
+     * -> Unhook OnTakeDamage
+     */
     if (iLastRespawnedClient != 0 && iLastRespawnedClient != -1 && IsClientConnected(iLastRespawnedClient) && IsPlayerAlive(iLastRespawnedClient) && SoloPlayer[iLastRespawnedClient].bNoDamage && GetGameTickCount() > iLastRespawnTime) {
         SDKUnhook(iLastRespawnedClient, SDKHook_OnTakeDamage, OnTakeDamage);
     }
-
+    /**
+     * If Map hasn't changed, Team Red and Team Blue ClientCountWithBots equals 1 -> Continue
+     */
     if (!bMapChanged && GetTeamClientCountWithBots(2) <= 1 && GetTeamClientCountWithBots(3) <= 1) {
+        /**
+         * If a Queue Size is not equal to 0, Clear Queue
+         * Reset CanSoloCommand and SoloMode for every player
+         */
         if (GetArraySize(hRedQueue) != 0) ClearArray(hRedQueue);
         if (GetArraySize(hBlueQueue) != 0) ClearArray(hBlueQueue);
         if (GetArraySize(hNoPreferenceQueue) != 0) ClearArray(hNoPreferenceQueue);
@@ -705,14 +807,22 @@ public void OnGameFrame() {
             if (IsClientConnected(i) && SoloPlayer[i].bCanSoloCommand) SoloPlayer[i].bCanSoloCommand = false;
         }
     }
+    /**
+     * If Map hasn't changed, Team Red ClientCountWithBots is bigger than 0 and equals the Solo Queue from Red
+     * -> Reset CanSoloCommand and SoloMode for every Red Player, Clear Red Queue, Print Message
+     */
     if (!bMapChanged && GetTeamClientCountWithBots(2) > 0 && GetTeamClientCountWithBots(2) == GetArraySize(hRedQueue)) {
         for (int i = 1; i < MaxClients; i++) {
-            if (IsClientConnected(i) && SoloPlayer[i].bSoloMode) SoloPlayer[i].bSoloMode = false;
-            if (SoloPlayer[i].bCanSoloCommand) SoloPlayer[i].bCanSoloCommand = false;
+            if (IsClientConnected(i) && GetClientTeam(i) == 2 && SoloPlayer[i].bSoloMode) SoloPlayer[i].bSoloMode = false;
+            if (IsClientConnected(i) && GetClientTeam(i) == 2 && SoloPlayer[i].bCanSoloCommand) SoloPlayer[i].bCanSoloCommand = false;
         }
         ClearArray(hRedQueue);
         CPrintToChatAll("%t", "Red_SoloQueueCleared");
     }
+    /**
+     * If Map hasn't changed, Team Blue ClientCountWithBots is bigger than 0 and equals the Solo Queue from Blue
+     */
+    
     if (!bMapChanged && GetTeamClientCountWithBots(3) > 0 && GetTeamClientCountWithBots(3) == GetArraySize(hBlueQueue)) {
         for (int i = 1; i < MaxClients; i++) {
             if (IsClientConnected(i) && SoloPlayer[i].bSoloMode) SoloPlayer[i].bSoloMode = false;
@@ -723,7 +833,6 @@ public void OnGameFrame() {
     }
 
 }
-
 stock int GetRedAlivePlayerCount() {
 	int iAlive = 0;
 	for (int i = 1; i <= MaxClients; i++) {
@@ -733,7 +842,6 @@ stock int GetRedAlivePlayerCount() {
 	}
 	return iAlive;
 }
-
 stock int GetBlueAlivePlayerCount() {
 	int iAlive = 0;
 	for (int i = 1; i <= MaxClients; i++) {
