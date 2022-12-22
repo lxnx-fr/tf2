@@ -21,6 +21,35 @@ Handle hRedQueue = INVALID_HANDLE;
 Handle hBlueQueue = INVALID_HANDLE;
 Handle hNoPreferenceQueue = INVALID_HANDLE;
 
+/**
+ * KNOWN BUGS: 
+ * ###Example###
+ * 3 Players in Team Red, 1 Bot in Team Blue
+ * Player 1: Enabled Solo Mode vs Enemy Team (RedQueue)
+ * Player 2: Enabled Solo Mode vs All (NoPrefQueue)
+ * Player 3: No Solo Mode activated
+ * 
+ * On Death of Player 3
+ * -> Respawn First Client of Team Queue (Red/Blue) (If there is a Player in the Team Queue)
+ * -> Otherwise Respawn First Client of NoPref Queue (If there is a Player in the Team Queue)
+ * 
+ * On Death of Player 1:
+ * -> Respawn Next Client of Team Queue (Red/Blue) (If there is another Player in the Team Queue)
+ * -> Otherwise Respawn Next Client of NoPref Queue (If there is another Player in the NoPref Queue)
+ * 
+ * 
+ * On Client Disconnect of Player 3 
+ * -> ###AFTER DISCONNECT CHECK###
+ * -> If Every Player of the Team (Red/Blue) has Solo Mode Activated (Red/Blue/NoPref Queue)
+ * -> Respawn First Player of the Team Queue (Red/Blue) (If there is a Player in the Team Queue) (and Remove him from the Queue)
+ * -> Otherwise Respawn First Client of the NoPref Queue (If there is a Player in the NoPref Queue) (and Remove him from the Queue)
+ * 
+ * -> ###NEXT ROUND SETUP/START CHECK###
+ * -> If Every Player of the Team (Red/Blue) has Solo Mode Activated (Red/Blue/NoPref Queue)
+ * -> Disable Solo Mode on First Client of the Team SoloQueue
+ * -> Otherwise Disable Solo mode on First Client of the NoPref SoloQueue
+ */
+
 bool bMapChanged;
 bool bRoundStarted;
 int iLastRespawnTime;
@@ -140,6 +169,9 @@ public void OnClientDisconnect(int iClient) {
                  * If No Queue Player was found -> Cancel
                  */
                 } else return;
+                if (GetClientTeam(iClient) != 2) {
+                    TF2_ChangeClientTeam(iFirstClient, TFTeam_Red);
+                }
                 /**
                  * If Solo Queue Player was found and hasn't been respawned yet
                  * -> Respawn First Player
@@ -173,6 +205,9 @@ public void OnClientDisconnect(int iClient) {
                  * If No Queue Player was found -> Cancel
                  */
                 } else return;
+                if (GetClientTeam(iClient) != 3) {
+                    TF2_ChangeClientTeam(iFirstClient, TFTeam_Blue);
+                }
                 /**
                  * If Solo Queue Player was found and hasn't been respawned yet
                  * -> Respawn First Player
@@ -414,6 +449,7 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
      */
     if (iTeam == 2 && GetRedAlivePlayerCount() == 1) {
         if (!IsPlayerInAnyTeamQueue(iClient) && !IsPlayerInRedTeamQueue(iClient)) {
+            CPrintToChatAll(">>> Player wasn't in a queue");
             /**
              * Client was not in the Red Queue or NoPref Queue
              */
@@ -421,7 +457,7 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
             /**
              * If Solo Queue from Red has players, take first from Red Queue
              */
-            if (GetArraySize(hRedQueue) > 0) {
+            if (GetArraySize(hRedQueue) >= 1) {
                 iFirstClient = GetClientOfUserId(GetArrayCell(hRedQueue, 0));
             /**
              * If Solo Queue from Red is empty, take first from NoPref Queue
@@ -432,6 +468,9 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
              * If No Queue Player was found -> Cancel
              */
             } else return Plugin_Continue;
+            if (GetClientTeam(iFirstClient) != 2) {
+                ChangeClientTeam(iFirstClient, 2);
+            }
             /**
              * If Solo Queue Player was found and hasn't been respawned yet
              * -> Respawn First Player
@@ -446,6 +485,7 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
                 ClientCommand(iFirstClient, "playgamesound \"%s\"", "ambient\\alarms\\doomsday_lift_alarm.wav");
             }
         } else {
+            CPrintToChatAll("Player was in a queue");
             /**
              * Client was in Red Queue or NoPref Queue
              */
@@ -454,6 +494,7 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
              * Getting Next Client from Red Queue
              */
             iNextIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient)) + 1;
+            CPrintToChatAll("NEXT INDEX: %i /// ARRAY SIZE RED: %i", iNextIndex, GetArraySize(hRedQueue));
             bool bNoPreferencePlayer = false;
             /**
              * If Next Array Index is bigger than Red Queue Size or equals 0
@@ -465,6 +506,7 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
                 /**
                  * If Next Array Index is bigger than NoPref Queue Size or equals 0 -> Cancel
                  */
+                CPrintToChatAll("NEXT INDEX: %i /// ARRAY SIZE NOPREF: %i", iNextIndex, GetArraySize(hNoPreferenceQueue));
                 if (iNextIndex > GetArraySize(hNoPreferenceQueue) || iNextIndex == 0) return Plugin_Continue;
             }
             
@@ -476,6 +518,12 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
                 iNextClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, iNextIndex));
             } else {
                 iNextClient = GetClientOfUserId(GetArrayCell(hRedQueue, iNextIndex));
+            }
+            /**
+             * If Client is not in Team Red -> Change It
+             */
+            if (GetClientTeam(iNextClient) != 2) {
+                ChangeClientTeam(iNextClient, 2);
             }
             /**
              * If Next Client was found and hasn't been respawned yet
@@ -516,6 +564,9 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
              * If No Queue Player was found -> Cancel
              */
             } else return Plugin_Continue;
+            if (GetClientTeam(iFirstClient) != 3) {
+                ChangeClientTeam(iFirstClient, 3);
+            }
             /**
              * If Solo Queue Player was found and hasn't been respawned yet
              * -> Respawn First Player
@@ -560,6 +611,9 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
                 iNextClient = GetClientOfUserId(GetArrayCell(hNoPreferenceQueue, iNextIndex));
             } else {
                 iNextClient = GetClientOfUserId(GetArrayCell(hBlueQueue, iNextIndex));
+            }
+            if (GetClientTeam(iNextClient) != 3) {
+                ChangeClientTeam(iNextClient, 3);
             }
             /**
              * If Next Client was found and hasn't been respawned yet
