@@ -18,7 +18,7 @@
 #define SQL_QUERY_CREATE 		"CREATE TABLE IF NOT EXISTS sakaStats (steamid VARCHAR(100), name VARCHAR(100), kills INT, deaths INT, lastLogout INT, firstLogin INT, lastLogin INT, playtime INT, coins INT, points INT, topspeed INT, deflections INT);"
 
 Handle DB = INVALID_HANDLE;
-
+ 
 enum struct CachedStats {
 	char sName[255];
 	char sCountry[255];
@@ -101,6 +101,15 @@ public void InitDatabase(bool bConnect) {
 		delete DB;
 	}
 }
+
+stock int CalculateVictimPoints(int iAttackerRank, int iVictimRank) {
+	int iDifference = 2;
+	return iDifference;
+}
+stock int CalculateAttackerPoints(int iAttackerRank, int iVictimRank) {
+	int iDifference = 2;
+	return iDifference;
+}
 public Action PlayerDeathEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
 	int iAttacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"));
 	int iVictim = GetClientOfUserId(GetEventInt(hEvent, "userid"));
@@ -108,9 +117,15 @@ public Action PlayerDeathEvent(Handle hEvent, char[] strEventName, bool bDontBro
 		int iInflictor = GetEventInt(hEvent, "inflictor_entindex");
 		int iIndex = TFDB_FindRocketByEntity(iInflictor);
 		if (iIndex != -1) {
-			StatsPlayer[iAttacker].iKills++;
 			StatsPlayer[iVictim].bPlayerDied = true;
-			return Plugin_Continue;
+			if (bStatsEnabled) {
+				StatsPlayer[iAttacker].iKills++;
+				StatsPlayer[iAttacker].iPoints += 2;
+
+				//StatsPlayer[iAttacker].iPoints += CalculateAttackerPoints(0, 0);
+				StatsPlayer[iVictim].iDeaths++;
+				StatsPlayer[iVictim].iPoints -= 2;
+			}
 		}
 	}
 	return Plugin_Continue;
@@ -216,7 +231,6 @@ public Action RoundStartEvent(Handle hEvent, char[] strEventName, bool bDontBroa
 	}
 	return Plugin_Continue;
 }
-
 public Action RoundEndEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
 	UpdateAllPlayers();
 	return Plugin_Handled;
