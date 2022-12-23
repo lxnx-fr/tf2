@@ -68,7 +68,7 @@ public void OnPluginStart() {
 	RegConsoleCmd("sm_topspeed", TopSpeedCommand);
 	RegConsoleCmd("sm_ts", TopSpeedCommand);
 	RegConsoleCmd("sm_help", HelpCommand);
-	HookEvent("teamplay_round_start", RoundStartEvent, EventHookMode_PostNoCopy);
+	HookEvent("arena_round_start", RoundStartEvent, EventHookMode_Post);
 	HookEvent("teamplay_round_win", RoundEndEvent, EventHookMode_PostNoCopy);
 	HookEvent("player_spawn", PlayerSpawnEvent, EventHookMode_Pre);
 	HookEvent("player_death", PlayerDeathEvent, EventHookMode_Post);
@@ -78,7 +78,7 @@ public void OnPluginStart() {
 public void OnPluginEnd() {
 	PrintToServer("[sakaSTATS] Disabling Plugin");
 	UpdateAllPlayers();
-	UnhookEvent("teamplay_round_start", RoundStartEvent, EventHookMode_PostNoCopy);
+	UnhookEvent("arena_round_start", RoundStartEvent, EventHookMode_PostNoCopy);
 	UnhookEvent("teamplay_round_win", RoundEndEvent, EventHookMode_PostNoCopy);
 	InitDatabase(false);
 }
