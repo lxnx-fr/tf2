@@ -95,19 +95,10 @@ public void SetFirstPersonView(int iClient) {
 }
 
 public void ThirdPersonRequest(int iClient) {
-	if (gInThirdperson[iClient]) {
-		CPrintToChat(iClient, "%t", "Command_TP_AlreadyEnabled");
-	} else {
-		SetThirdPersonView(iClient);
-		CPrintToChat(iClient, "%t", "Command_TP_Enabled");
-	}
+	CPrintToChat(iClient, "%t", "Command_TP_Enabled");
 }
 
 public void FirstPersonRequest(int iClient) {
-	if (!gInThirdperson[iClient]) {
-		CPrintToChat(iClient, "%t", "Command_FP_AlreadyEnabled");
-	} else {
-		SetFirstPersonView(iClient);
-		CPrintToChat(iClient, "%t", "Command_FP_Enabled");
-	}
+	SetFirstPersonView(iClient);
+	CPrintToChat(iClient, "%t", "Command_FP_Enabled");
 }

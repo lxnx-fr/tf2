@@ -20,37 +20,7 @@ Handle hRedQueue = INVALID_HANDLE;
 Handle hBlueQueue = INVALID_HANDLE;
 Handle hNoPreferenceQueue = INVALID_HANDLE;
 
-/**
- * KNOWN BUGS (SHOULD BE FIXED): 
- * ###Example###
- * 3 Players in Team Red, 1 Bot in Team Blue
- * Player 1: Enabled Solo Mode vs Enemy Team (RedQueue)
- * Player 2: Enabled Solo Mode vs All (NoPrefQueue)
- * Player 3: No Solo Mode activated
- * 
- * On Death of Player 3
- * -> Respawn First Client of Team Queue (Red/Blue) (If there is a Player in the Team Queue)
- * -> Otherwise Respawn First Client of NoPref Queue (If there is a Player in the Team Queue)
- * 
- * On Death of Player 1:
- * -> Respawn Next Client of Team Queue (Red/Blue) (If there is another Player in the Team Queue)
- * -> Otherwise Respawn Next Client of NoPref Queue (If there is another Player in the NoPref Queue)
- * 
- * 
- * On Client Disconnect of Player 3 
- * -> ###AFTER DISCONNECT CHECK###
- * -> If Every Player of the Team (Red/Blue) has Solo Mode Activated (Red/Blue/NoPref Queue)
- * -> Respawn First Player of the Team Queue (Red/Blue) (If there is a Player in the Team Queue) (and Remove him from the Queue)
- * -> Otherwise Respawn First Client of the NoPref Queue (If there is a Player in the NoPref Queue) (and Remove him from the Queue)
- * 
- * -> ###NEXT ROUND SETUP/START CHECK###
- * -> If Every Player of the Team (Red/Blue) has Solo Mode Activated (Red/Blue/NoPref Queue)
- * -> Disable Solo Mode on First Client of the Team SoloQueue
- * -> Otherwise Disable Solo mode on First Client of the NoPref SoloQueue
- */
-
 bool bMapChanged;
-
 bool bRoundStarted;
 int iLastRespawnTime;
 int iLastRespawnedClient;
@@ -521,18 +491,22 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
              * Getting Current Client Index with User Id from Red Team
              */
             iNextIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient)) + 1;
+
              /**
              * If Next Array Index is bigger than Red Queue Size or equals 0 (-1)
              * -> Search in NoPref Queue
              * ((GetArraySize Counts normal, so 3 Players equals 3 in Size, but the Indexes Start at 0, so to get the third Client we have to use 2)) 
              */
-            if (iNextIndex > (GetArraySize(hRedQueue) - 1) || iNextIndex == 0) {
+            if (iNextIndex >= GetArraySize(hRedQueue)) {
+           
                 bNoPreferencePlayer = true;
                 iNextIndex = FindValueInArray(hNoPreferenceQueue,  GetClientUserId(iClient)) + 1;
                 /**
                  * If Next Array Index is bigger than NoPref Queue Size or equals 0 (-1) -> Cancel
                  */
-                if (iNextIndex > (GetArraySize(hNoPreferenceQueue) - 1) || iNextIndex == 0) return Plugin_Continue;
+                if (iNextIndex >= GetArraySize(hNoPreferenceQueue)) { 
+                    return Plugin_Continue; 
+                }
             }
             
             int iNextClient = -1;
@@ -622,13 +596,13 @@ public Action PlayerDeathEvent(Handle hEvent, char[] sName, bool bDontBroadcast)
              * If Next Array Index is bigger than Blue Queue Size or equals 0
              * -> Search in NoPref Queue
              */
-            if (iNextIndex > (GetArraySize(hBlueQueue) - 1) || iNextIndex == 0) {
+            if (iNextIndex >= GetArraySize(hBlueQueue)) {
                 bNoPreferencePlayer = true;
                 iNextIndex = FindValueInArray(hNoPreferenceQueue,  GetClientUserId(iClient)) + 1;
                 /**
                  * If Next Array Index is bigger than NoPref Queue Size or equals 0 -> Cancel
                  */
-                if (iNextIndex > (GetArraySize(hNoPreferenceQueue) - 1) || iNextIndex == 0) return Plugin_Continue;
+                if (iNextIndex >= GetArraySize(hNoPreferenceQueue)) return Plugin_Continue;
             }
             
             int iNextClient = -1;
@@ -745,19 +719,26 @@ public Action PlayerTeamEvent(Handle hEvent, char[] sName, bool bDontBroadcast) 
          * If new Team is Spectator/Unassigned -> Remove Client from any Queues 
          */
         if (iTeam == 0 || iTeam == 1) {
-            CPrintToChat(iClient, "%t", "TeamChange_ToSpectator");
-            if (IsPlayerInRedTeamQueue(iClient)) {
-                int iIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient));
-                if (iIndex != -1) RemoveFromArray(hRedQueue, iIndex);
-            }
-            if (IsPlayerInBlueTeamQueue(iClient)) {
-                int iIndex = FindValueInArray(hBlueQueue, GetClientUserId(iClient));
-                if (iIndex != -1) RemoveFromArray(hBlueQueue, iIndex);
-            }
             if (IsPlayerInAnyTeamQueue(iClient)) {
                 int iIndex = FindValueInArray(hNoPreferenceQueue, GetClientUserId(iClient));
                 if (iIndex != -1) RemoveFromArray(hNoPreferenceQueue, iIndex);
+            } else {
+                if (IsPlayerInRedTeamQueue(iClient)) {
+                    int iIndex = FindValueInArray(hRedQueue, GetClientUserId(iClient));
+                    if (iIndex != -1) RemoveFromArray(hRedQueue, iIndex);
+                } else if (IsPlayerInBlueTeamQueue(iClient)) {
+                    int iIndex = FindValueInArray(hBlueQueue, GetClientUserId(iClient));
+                    if (iIndex != -1) RemoveFromArray(hBlueQueue, iIndex);
+                } else {
+                    PrintToServer("[sakaSOLO] Team / Queue not found %i for %N", SoloPlayer[iClient].iTeam, iClient);
+                }
             }
+            SoloPlayer[iClient].bSoloMode = false;
+            SoloPlayer[iClient].bAnyTeam = false;
+            SoloPlayer[iClient].bHasRespawned = false;
+            SoloPlayer[iClient].bNoDamage = false;
+            SoloPlayer[iClient].iDeaths = 0;
+            CPrintToChat(iClient, "%t", "TeamChange_ToSpectator");
         }
         /**
          * If new Team is Red, Client is not in NoPref Queue, Client is in Blue Queue and old Team was Blue
@@ -880,7 +861,8 @@ stock int GetTeamClientCountWithBots(int iTeam) {
 stock bool IsRestOfTeamInSoloQueue(int iCurrentTeam) {
     int iCurrentTeamCount = TeamClientCount(iCurrentTeam);
     for (int i = 1; i <= MaxClients; i++) {
-        if (IsClientConnected(i) && GetClientTeam(i) == iCurrentTeam) {
+        
+        if (IsClientInGame(i) && IsClientConnected(i) && GetClientTeam(i) == iCurrentTeam) {
             if (IsPlayerInAnyTeamQueue(i) || IsPlayerInRedTeamQueue(i) || IsPlayerInBlueTeamQueue(i)) { iCurrentTeamCount--; }
         }
     }

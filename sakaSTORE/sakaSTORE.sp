@@ -30,7 +30,7 @@ public Plugin myinfo = {
 	author = PLUGIN_AUTHOR,
 	description = PLUGIN_DESCRIPTION,
 	version = PLUGIN_VERSION,
-	url = "https://l03.dev/"
+	url = "https://tf2.l03.dev/"
 };
 
 public void OnPluginStart() {
