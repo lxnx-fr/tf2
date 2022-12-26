@@ -3,111 +3,122 @@
 
 #include <sourcemod>
 #include <sdktools>
-#include <multicolors>
 #include <clientprefs>
+#include <multicolors>
+#undef REQUIRE_EXTENSIONS
 #include <tf2>
 
-#define PLUGIN_VERSION 		"1.0"
-#define PLUGIN_NAME 		"sakaFOV"
-#define PLUGIN_AUTHOR 		"ѕαĸα"
-#define PLUGIN_DESCRIPTION 	"Change Field of View"
-#define PLUGIN_URL 			"https://tf2.l03.dev/"
+#define PLUGIN_VERSION	"1.2.0"
 
 public Plugin myinfo = {
-  name = PLUGIN_NAME,
-  author = PLUGIN_AUTHOR,
-  description = PLUGIN_DESCRIPTION,
-  version = PLUGIN_VERSION,
-  url = PLUGIN_URL
+	name		= "sakaFOV",
+	author		= "Dr. McKay",
+	description	= "Allows players to choose their own FOV",
+	version		= PLUGIN_VERSION,
+	url			= "http://www.doctormckay.com"
 };
 
-Handle hFOVCookie;
+Handle cookieFOV;
+Handle cvarFOVMin;
+Handle cvarFOVMax;
+
+#define CONVAR_PREFIX	"ufov"
 
 public void OnPluginStart() {
-	PrintToServer("[sakaFOV] Enabling Plugin (Version %s)", PLUGIN_VERSION);
-	hFOVCookie = RegClientCookie("unrestricted_fov", "Client Desired FOV", CookieAccess_Private);
-	RegConsoleCmd("sm_fov", FovCommand);
-	HookEvent("player_spawn", PlayerSpawnEvent);
+	cookieFOV = RegClientCookie("unrestricted_fov", "Client Desired FOV", CookieAccess_Private);
+	
+	cvarFOVMin = CreateConVar("ufov_min", "20", "Minimum FOV a client can set with the !fov command", _, true, 20.0, true, 180.0);
+	cvarFOVMax = CreateConVar("ufov_max", "130", "Maximum FOV a client can set with the !fov command", _, true, 20.0, true, 180.0);
+	
+	RegConsoleCmd("sm_fov", Command_FOV);
+	HookEvent("player_spawn", Event_PlayerSpawn);
 }
 
-public void OnPluginEnd() {
-	UnhookEvent("player_spawn", PlayerSpawnEvent);
-	PrintToServer("[sakaFOV] Disabling Plugin");
-}
-
-
-public Action FovCommand(int iClient, int iArgs) {
-	char sFOV[12];
-	GetCmdArg(1, sFOV, sizeof(sFOV));  	
-	int iFov = StringToInt(sFOV); 
-	if (!AreClientCookiesCached(iClient)) {
-		CReplyToCommand(iClient, "{mediumpurple}ғᴏᴠ {black}» {ancient}This command is currently unavailable. Please try again later.");
-		return Plugin_Handled;
-	} 
-	if(iArgs == 0) {
-		QueryClientConVar(iClient, "fov_desired", OnFOVQueried);
-		CReplyToCommand(iClient, "{mediumpurple}ғᴏᴠ {black}» {default}Your FOV has been reset.");
-		return Plugin_Handled;
-	} 
-	if(iFov < 30) {
-		QueryClientConVar(iClient, "fov_desired", OnFOVQueried);
-		CReplyToCommand(iClient, "{mediumpurple}ғᴏᴠ {black}» {default}The minimum FOV you can set  is {dodgerblue}30{default}.");
+public Action Command_FOV(int client, int args) {
+	
+	if(!AreClientCookiesCached(client)) {
+		CReplyToCommand(client, "{mediumpurple}ғᴏᴠ {black}» {red}This command is currently unavailable. Please try again later.");
 		return Plugin_Handled;
 	}
-	if(iFov > 130) {
-		QueryClientConVar(iClient, "fov_desired", OnFOVQueried);
-		CReplyToCommand(iClient, "{mediumpurple}ғᴏᴠ {black}» {default}The maximum FOV you can set is {dodgerblue}150{default}.");
-		return Plugin_Handled;
+	
+	if (args >= 1) {
+		char sFov[32];
+		GetCmdArg(1, sFov, sizeof(sFov));
+		int fov = StringToInt(sFov);
+		if(fov < GetConVarInt(cvarFOVMin)) {
+			QueryClientConVar(client, "fov_desired", OnFOVQueried);
+			CReplyToCommand(client, "{mediumpurple}ғᴏᴠ {black}» {default}The minimum FOV you can set is {dodgerblue}%i", GetConVarInt(cvarFOVMin));
+			return Plugin_Handled;
+		}
+		if(fov > GetConVarInt(cvarFOVMax)) {
+			QueryClientConVar(client, "fov_desired", OnFOVQueried);
+			CReplyToCommand(client, "{mediumpurple}ғᴏᴠ {black}» {default}The maximum FOV you can set is {dodgerblue}%i", GetConVarInt(cvarFOVMax));
+			return Plugin_Handled;
+		}
+		char cookie[12];
+		IntToString(fov, cookie, sizeof(cookie));
+		SetClientCookie(client, cookieFOV, cookie);
+	
+		SetEntProp(client, Prop_Send, "m_iFOV", fov);
+		SetEntProp(client, Prop_Send, "m_iDefaultFOV", fov);
+		CReplyToCommand(client, "{mediumpurple}ғᴏᴠ {black}» {default}Your FOV has been set to {dodgerblue}%i {default}on this server.", fov);
+	} else {
+		QueryClientConVar(client, "fov_desired", OnFOVQueried);
+		CReplyToCommand(client, "{mediumpurple}ғᴏᴠ {black}» {default}Your FOV has been reset.");
 	}
-	char sCookie[12];
-	IntToString(iFov, sCookie, sizeof(sCookie));
-	SetClientCookie(iClient, hFOVCookie, sCookie);
-	SetEntProp(iClient, Prop_Send, "m_iFOV", iFov);
-	SetEntProp(iClient, Prop_Send, "m_iDefaultFOV", iFov);
-	CReplyToCommand(iClient, "{mediumpurple}ғᴏᴠ {black}» {default}Your FOV has been set to {dodgerblue}%d{default} on this server.", iFov);
 	return Plugin_Handled;
 }
 
 
-public Action PlayerSpawnEvent(Handle event, const char[] name, bool dontBroadcast) {
-	int iClient = GetClientOfUserId(GetEventInt(event, "userid"));
-	if(!AreClientCookiesCached(iClient)) {
-		return Plugin_Handled;
+public Action Event_PlayerSpawn(Handle event, char[] name, bool dontBroadcast) {
+	int client = GetClientOfUserId(GetEventInt(event, "userid"));
+	if(!AreClientCookiesCached(client)) {
+		return Plugin_Continue;
 	}
-	char sCookie[12];
-	GetClientCookie(iClient, hFOVCookie, sCookie, sizeof(sCookie));
-	int iFov = StringToInt(sCookie);
-	SetEntProp(iClient, Prop_Send, "m_iFOV", iFov);
-	SetEntProp(iClient, Prop_Send, "m_iDefaultFOV", iFov);
-	return Plugin_Handled;
+	
+	char cookie[12];
+	GetClientCookie(client, cookieFOV, cookie, sizeof(cookie));
+	int fov = StringToInt(cookie);
+	if(fov < GetConVarInt(cvarFOVMin) || fov > GetConVarInt(cvarFOVMax)) {
+		return Plugin_Continue;
+	}
+	SetEntProp(client, Prop_Send, "m_iFOV", fov);
+	SetEntProp(client, Prop_Send, "m_iDefaultFOV", fov);
+	return Plugin_Continue;
 }
 
-public void TF2_OnConditionAdded(int iClient, TFCond condition) {
+public void TF2_OnConditionAdded(int client, TFCond condition) {
 	if(condition != TFCond_TeleportedGlow) {
 		return;
 	}
-	char sCookie[12];
-	GetClientCookie(iClient, hFOVCookie, sCookie, sizeof(sCookie));
-	int iFov = StringToInt(sCookie);
-	SetEntProp(iClient, Prop_Send, "m_iFOV", iFov);
-	SetEntProp(iClient, Prop_Send, "m_iDefaultFOV", iFov);
+	char cookie[12];
+	GetClientCookie(client, cookieFOV, cookie, sizeof(cookie));
+	int fov = StringToInt(cookie);
+	if(fov < GetConVarInt(cvarFOVMin) || fov > GetConVarInt(cvarFOVMax)) {
+		return;
+	}
+	SetEntProp(client, Prop_Send, "m_iFOV", fov);
+	SetEntProp(client, Prop_Send, "m_iDefaultFOV", fov);
 }
-public void TF2_OnConditionRemoved(int iClient, TFCond condition) {
+public void TF2_OnConditionRemoved(int client, TFCond condition) {
 	if(condition != TFCond_Zoomed) {
 		return;
 	}
-	char sCookie[12];
-	GetClientCookie(iClient, hFOVCookie, sCookie, sizeof(sCookie));
-	int iFov = StringToInt(sCookie);
-	SetEntProp(iClient, Prop_Send, "m_iFOV", iFov);
-	SetEntProp(iClient, Prop_Send, "m_iDefaultFOV", iFov);
+	char cookie[12];
+	GetClientCookie(client, cookieFOV, cookie, sizeof(cookie));
+	int fov = StringToInt(cookie);
+	if(fov < GetConVarInt(cvarFOVMin) || fov > GetConVarInt(cvarFOVMax)) {
+		return;
+	}
+	SetEntProp(client, Prop_Send, "m_iFOV", fov);
+	SetEntProp(client, Prop_Send, "m_iDefaultFOV", fov);
 }
 
-public void OnFOVQueried(QueryCookie cookie, int iClient, ConVarQueryResult result, const char[] cvarName, const char[] cvarValue) {
+public void OnFOVQueried(QueryCookie cookie, int client, ConVarQueryResult result, char[] cvarName, char[] cvarValue) {
 	if(result != ConVarQuery_Okay) {
 		return;
 	}
-	SetClientCookie(iClient, hFOVCookie, "");
-	SetEntProp(iClient, Prop_Send, "m_iFOV", StringToInt(cvarValue));
-	SetEntProp(iClient, Prop_Send, "m_iDefaultFOV", StringToInt(cvarValue));
+	SetClientCookie(client, cookieFOV, "");
+	SetEntProp(client, Prop_Send, "m_iFOV", StringToInt(cvarValue));
+	SetEntProp(client, Prop_Send, "m_iDefaultFOV", StringToInt(cvarValue));
 }

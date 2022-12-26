@@ -21,7 +21,7 @@ Handle DB = INVALID_HANDLE;
  
 enum struct CachedStats {
 	char sName[255];
-	char sCountry[255];
+	char sCountry[128];
 	int iCoins;
 	int iPoints;
 	int iKills;
@@ -38,6 +38,7 @@ enum struct CachedStats {
 
 bool bStatsEnabled = false;
 bool bBotFound = false;
+int iMinRequiredPlayersForStats = 3;
 
 CachedStats StatsPlayer[MAXPLAYERS + 1];
 
@@ -63,6 +64,7 @@ public void OnPluginStart() {
 	InitDatabase(true);	
 	RegServerCmd("sakastats", SakaStatsServerCommand);
 	RegConsoleCmd("sm_stats", StatsCommand);
+	RegConsoleCmd("sm_rank", StatsCommand);
 	RegConsoleCmd("sm_place", PlaceCommand);
 	RegConsoleCmd("sm_coins", CoinsCommand);
 	RegConsoleCmd("sm_topspeed", TopSpeedCommand);
@@ -72,12 +74,12 @@ public void OnPluginStart() {
 	HookEvent("teamplay_round_win", RoundEndEvent, EventHookMode_PostNoCopy);
 	HookEvent("player_spawn", PlayerSpawnEvent, EventHookMode_Pre);
 	HookEvent("player_death", PlayerDeathEvent, EventHookMode_Post);
-	LoadAllPlayers();
+	LoadAllPlayersFromDB();
 }
 
 public void OnPluginEnd() {
 	PrintToServer("[sakaSTATS] Disabling Plugin");
-	UpdateAllPlayers();
+	LoadAllPlayersToDB();
 	UnhookEvent("arena_round_start", RoundStartEvent, EventHookMode_PostNoCopy);
 	UnhookEvent("teamplay_round_win", RoundEndEvent, EventHookMode_PostNoCopy);
 	InitDatabase(false);
@@ -90,26 +92,20 @@ public void InitDatabase(bool bConnect) {
 		//DB = SQL_ConnectCustom(DB_KEYVALUES, sError, sizeof(sError), false);
 		if (DB == INVALID_HANDLE) {
 	    	PrintToServer("[sakaSTATS] Could not connect to database: %s", sError);
-	    	CloseHandle(DB);
+	    	delete DB;
 		}
 		PrintToServer("[sakaSTATS] Connecting to database...");
 		if (!SQL_FastQuery(DB, SQL_QUERY_CREATE)) {
 			SQL_GetError(DB, sError, sizeof(sError));
-			PrintToServer("[sakaSTATS] Failed to query (error: %s)", sError);
+			PrintToServer("[sakaSTATS] Failed to create table (error: %s)", sError);
 		}
 	} else {
 		delete DB;
 	}
 }
-
-stock int CalculateVictimPoints(int iAttackerRank, int iVictimRank) {
-	int iDifference = 2;
-	return iDifference;
-}
-stock int CalculateAttackerPoints(int iAttackerRank, int iVictimRank) {
-	int iDifference = 2;
-	return iDifference;
-}
+/**
+ * Plugin Events
+ */
 public Action PlayerDeathEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
 	int iAttacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"));
 	int iVictim = GetClientOfUserId(GetEventInt(hEvent, "userid"));
@@ -121,7 +117,6 @@ public Action PlayerDeathEvent(Handle hEvent, char[] strEventName, bool bDontBro
 			if (bStatsEnabled) {
 				StatsPlayer[iAttacker].iKills++;
 				StatsPlayer[iAttacker].iPoints += 2;
-
 				//StatsPlayer[iAttacker].iPoints += CalculateAttackerPoints(0, 0);
 				StatsPlayer[iVictim].iDeaths++;
 				StatsPlayer[iVictim].iPoints -= 2;
@@ -130,13 +125,11 @@ public Action PlayerDeathEvent(Handle hEvent, char[] strEventName, bool bDontBro
 	}
 	return Plugin_Continue;
 }
-
 public Action PlayerSpawnEvent(Handle hEvent, char[] sEventName, bool bDontBroadcast) {
 	int iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	StatsPlayer[iClient].bPlayerDied = false;
-	return Plugin_Handled;
+	return Plugin_Continue;
 }
-
 public void OnEntityDestroyed(int iEntity) {
 	if (iEntity == -1)
 		return;
@@ -158,42 +151,6 @@ public void OnEntityDestroyed(int iEntity) {
 	int iDeflections = TFDB_GetRocketDeflections(iIndex);
 	CPrintToChatAll("%t", "OnEntityDestroyed", iTarget, fRocketSpeed, iDeflections, (iDeflections == 1 ? "Deflection" : "Deflections"), fRocketAdminSpeed);
 }
-
-public void OnClientPutInServer(int iClient) {
-	if (!IsEntityConnectedClient(iClient) || IsFakeClient(iClient)) return;
-	GetPlayerCountry(iClient);
-	if (PlayerExists(iClient)) {
-		PrintToServer("[sakaSTATS] PlayerExits(true) %N", iClient);
-		StatsPlayer[iClient].iLastLogin = GetTime();
-		LoadPlayerFromDB(iClient, true);
-	} else {
-		PrintToServer("[sakaSTATS] PlayerExists(false) %N", iClient);
-		CreatePlayer(iClient, true);
-	}
-}
-public void OnClientDisconnect(int iClient) {
-	if (!IsEntityConnectedClient(iClient) || IsFakeClient(iClient)) return;
-	/*char sQuery[255];
-	int iFinalTime = StatsPlayer[iClient].iPlayTime + GetTime() - StatsPlayer[iClient].iLastLogin;
-	PrintToServer("[sakaSTATS] OnClientDisconnect() Updating PlayTime: %N", iClient);
-	Format(sQuery, sizeof(sQuery), "UPDATE sakaStats SET playtime = '%i' WHERE steamid = '%s';", iFinalTime, GetSteamId(iClient));
-	if (!SQL_FastQuery(DB, sQuery)) {
-		char sError[255];
-		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] OnClientDisconnect() failed to query (error: %s)", sError);
-	}*/
-	LoadPlayerToDB(iClient);
-}
-stock bool IsPlayerVsBot() {
-	bool bBot = false;
-	for (int i = 0; i <= MaxClients; i++) {
-		if (IsEntityConnectedClient(i) && IsFakeClient(i)) {
-				bBot = true;
-				break;
-		}
-	}
-	return bBot;
-}
 public void TFDB_OnRocketDeflect(int iIndex, int iEntity, int iOwner) {
 	if (!bBotFound) {
 		int iSavedTopSpeed = StatsPlayer[iOwner].iTopSpeed;
@@ -209,52 +166,56 @@ public void TFDB_OnRocketDeflect(int iIndex, int iEntity, int iOwner) {
 		}
 	}
 }
-stock int PlayerCountWithoutBots() {
-	int iCount = 0;
-	for (int i = 1; i < MaxClients; i++) {
-		if (IsEntityConnectedClient(i) && IsClientConnected(i) && !IsFakeClient(i) && (GetClientTeam(i) == 2 || GetClientTeam(i) == 3)) {
-			iCount++;
-		}
+public void OnClientPutInServer(int iClient) {
+	if (!IsEntityConnectedClient(iClient) || IsFakeClient(iClient)) return;
+	GetPlayerCountry(iClient);
+	if (PlayerExists(iClient)) {
+		PrintToServer("[sakaSTATS] PlayerExits(true) %N", iClient);
+		StatsPlayer[iClient].iLastLogin = GetTime();
+		LoadPlayerFromDB(iClient, true);
+	} else {
+		PrintToServer("[sakaSTATS] PlayerExists(false) %N", iClient);
+		CreatePlayer(iClient, true);
 	}
-	return iCount;
-} 
+}
+public void OnClientDisconnect(int iClient) {
+	if (!IsEntityConnectedClient(iClient) || IsFakeClient(iClient)) return;
+	LoadPlayerToDB(iClient);
+}
 public Action RoundStartEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
 	bBotFound = IsPlayerVsBot();
 	if (PlayerCountWithoutBots() >=3 ) {
 		if (!bStatsEnabled) {
-			CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are now enabled ({dodgerblue}%i{default}/{dodgerblue}3{default})", PlayerCountWithoutBots());
+			CPrintToChatAll("%t", "RoundStart_StatsEnabled", PlayerCountWithoutBots(), iMinRequiredPlayersForStats);
 		}
 		bStatsEnabled = true; 
 	} else {
 		bStatsEnabled = false;
-		CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are disabled. Not enough active Players ({dodgerblue}%i{default}/{dodgerblue}3{default})", PlayerCountWithoutBots());
+		CPrintToChatAll("%t", "RoundStart_StatsDisabled", PlayerCountWithoutBots(), iMinRequiredPlayersForStats);
 	}
 	return Plugin_Continue;
 }
 public Action RoundEndEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
-	UpdateAllPlayers();
-	return Plugin_Handled;
-}
-public void UpdateAllPlayers() {
-	for (int iClient = 0; iClient <= MaxClients; iClient++) {
-		if (IsEntityConnectedClient(iClient) && !IsFakeClient(iClient)) { LoadPlayerToDB(iClient); }
-	}
-}
-public void LoadAllPlayers() {
-	for (int client = 0; client <= MaxClients; client++) {
-		if (IsEntityConnectedClient(client) && !IsFakeClient(client)) { LoadPlayerFromDB(client, false); }
-	}
+	LoadAllPlayersToDB();
+	return Plugin_Continue;
 }
 public Action WelcomeBack(Handle hTimer, int iClient) {
+	char sCountry[128];
+	sCountry = StatsPlayer[iClient].sCountry;
 	int iPoints = StatsPlayer[iClient].iPoints;
 	int iRankingPoints = GetRanking(GetSteamId(iClient), "points");
-	CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {default}Welcome back, {dodgerblue}%s{default}! ({dodgerblue}#%i{default} with {dodgerblue}%i{default} Points | {dodgerblue}%s{default})", StatsPlayer[iClient].sName, iRankingPoints, iPoints, StatsPlayer[iClient].sCountry);
+	CPrintToChatAll("%t", "PlayerJoin_WelcomeBack", iClient, iRankingPoints, iPoints, sCountry);
 	return Plugin_Continue;
 }
 public Action WelcomeFirst(Handle hTimer, int iClient) {
-	CPrintToChatAll("{mediumpurple}ᴛғᴅʙ {black}» {dodgerblue}%s{default} joined the first time from {dodgerblue}%s{default}. Welcome!", StatsPlayer[iClient].sName, StatsPlayer[iClient].sCountry);
+	char sCountry[128];
+	sCountry = StatsPlayer[iClient].sCountry;
+	CPrintToChatAll("%t", "PlayerJoin_FirstWelcome", iClient, sCountry);
 	return Plugin_Continue;
 }
+/**
+ * Help Command and Menu Management
+ */
 public Action HelpCommand(int iClient, int iArgs) {
 	DrawHelpMenu(iClient);
 	return Plugin_Handled;
@@ -263,12 +224,12 @@ public void DrawHelpMenu(int iClient) {
 	Menu menu = new Menu(HelpMenuHandle);
 	menu.SetTitle("Help Menu");
 	menu.AddItem("0", "!stats - Watch Rankings & Your Stats");
-	menu.AddItem("1", "!place - Show ur Rank in Chat");
+	menu.AddItem("1", "!place - Show your Rank in Chat");
 	menu.AddItem("2", "!cfp - Change your Footprint Color");
 	menu.AddItem("3", "!fov - Change your FOV");
-	menu.AddItem("4", "!tp/!fp - Change to Thirdperson/Firstperson");
+	menu.AddItem("4", "!tp | !fp - Change to Thirdperson/Firstperson");
 	menu.AddItem("5", "!coins - Shows ur Coins");
-	menu.AddItem("6", "!stats");
+	menu.AddItem("6", "!scc - Change Your Chat Color");
 	menu.ExitButton = true;
 	menu.Display(iClient, MENU_TIME_FOREVER);
 }
@@ -278,6 +239,9 @@ public int HelpMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) 
 	}
 	return 0;
 }
+/**
+ * Stats Command and Menu Management
+ */
 public Action StatsCommand(int iClient, int iArgs) {
 	DrawStatsMainMenu(iClient);
 	return Plugin_Handled;
@@ -312,14 +276,17 @@ public int StatsMainMenuHandle(Menu menu, MenuAction action, int iClient, int iI
 public void DrawUserStats(int iClient) {
 	int iCachedPlaytime =  StatsPlayer[iClient].iPlayTime;
 	int iSeconds = iCachedPlaytime + GetTime() - StatsPlayer[iClient].iLastLogin;
+	char sFormatText[64];
+	bool bZero = StatsPlayer[iClient].iKills > 0 && StatsPlayer[iClient].iDeaths > 0;
+	int iSavedPoints = StatsPlayer[iClient].savedPoints;
+	int iCurrentPoints = StatsPlayer[iClient].iPoints;
 	Menu menu = new Menu(UserStatsMenuHandle);
 	menu.SetTitle("Your Stats");
-	char sFormatText[64];
+	
 	Format(sFormatText, sizeof(sFormatText), "Kills: %i", StatsPlayer[iClient].iKills);
 	menu.AddItem("0", sFormatText, ITEMDRAW_DISABLED);
 	Format(sFormatText, sizeof(sFormatText), "Deaths: %i", StatsPlayer[iClient].iDeaths);
 	menu.AddItem("1", sFormatText, ITEMDRAW_DISABLED);
-	bool bZero = StatsPlayer[iClient].iKills > 0 && StatsPlayer[iClient].iDeaths > 0;
 	if (bZero)
 		Format(sFormatText, sizeof(sFormatText), "Kills/Deaths Ratio: %.2f", (StatsPlayer[iClient].iKills / StatsPlayer[iClient].iDeaths));
 	else
@@ -327,8 +294,6 @@ public void DrawUserStats(int iClient) {
 	menu.AddItem("2", sFormatText, ITEMDRAW_DISABLED);
 	Format(sFormatText, sizeof(sFormatText), "Points: %i", StatsPlayer[iClient].iPoints);
 	menu.AddItem("3", sFormatText, ITEMDRAW_DISABLED);
-	int iSavedPoints = StatsPlayer[iClient].savedPoints;
-	int iCurrentPoints = StatsPlayer[iClient].iPoints;
 	if (iCurrentPoints >= iSavedPoints) 
 		Format(sFormatText, sizeof(sFormatText), "Points gained: +%i", (iCurrentPoints - iSavedPoints));
 	else
@@ -341,7 +306,6 @@ public void DrawUserStats(int iClient) {
 	menu.ExitButton = true;
 	menu.ExitBackButton = true;
 	menu.Display(iClient, MENU_TIME_FOREVER);
-	
 }
 public int UserStatsMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) {
 	switch (action) {
@@ -437,7 +401,6 @@ public void DrawPlayerRanking(int iClient, char[] sRankingType) {
 			}
 			menu.AddItem(sSteamId, sMenuText, ITEMDRAW_DEFAULT);
 		}
-		
 	}
 	menu.ExitBackButton = true;
 	menu.ExitButton = true;
@@ -488,6 +451,9 @@ public int NextPlayersMenuHandle(Menu menu, MenuAction action, int iClient, int 
 	}
 	return 0;
 }
+/**
+ * Misc Commands
+ */
 public Action PlaceCommand(int iClient, int iArgs) {
 	int iRanking = GetRanking(GetSteamId(iClient), "points");
 	int iAllPlayers = GetRowCount();
@@ -644,11 +610,15 @@ public Action SakaStatsServerCommand(int iArgs) {
 	} 
 	return Plugin_Handled;
 }
+/**
+ * Dynamic Values
+ */
 stock char[] GeneratePlaytimeString(int iMySQLPlaytime) {
 	int iSeconds = iMySQLPlaytime;
 	int iMinutes = 0;
 	int iHours = 0;
 	int iDays = 0;
+	char cFormatPlaytime[64];
 	while(iSeconds > 60) {
 		iSeconds -= 60;
 		iMinutes += 1;
@@ -661,7 +631,6 @@ stock char[] GeneratePlaytimeString(int iMySQLPlaytime) {
 		iHours -= 24;
 		iDays += 1;
 	}
-	char cFormatPlaytime[64];
 	Format(cFormatPlaytime, sizeof(cFormatPlaytime), "%id%ih%im%is", iDays, iHours, iMinutes, iSeconds);
 	return cFormatPlaytime;
 }
@@ -774,17 +743,46 @@ stock bool GetPlayerCountry(int iClient) {
 	StatsPlayer[iClient].sCountry = ((bIPFailed && bCountryFailed) ? "Not Found" : sCountryName);
 	return bIPFailed && bCountryFailed;
 }
+stock bool IsPlayerVsBot() {
+	bool bBot = false;
+	for (int i = 1; i < MaxClients; i++) {
+		if (IsEntityConnectedClient(i) && IsFakeClient(i)) {
+			bBot = true;
+			break;
+		}
+	}
+	return bBot;
+}
+stock int PlayerCountWithoutBots() {
+	int iCount = 0;
+	for (int i = 1; i < MaxClients; i++) {
+		if (IsEntityConnectedClient(i) && IsClientConnected(i) && !IsFakeClient(i) && (GetClientTeam(i) == 2 || GetClientTeam(i) == 3)) {
+			iCount++;
+		}
+	}
+	return iCount;
+} 
+stock int CalculateVictimPoints(int iAttackerRank, int iVictimRank) {
+	int iDifference = 2;
+	return iDifference;
+}
+stock int CalculateAttackerPoints(int iAttackerRank, int iVictimRank) {
+	int iDifference = 2;
+	return iDifference;
+}
+/**
+ * Player Database Functions
+ */
 public void CreatePlayer(int iClient, bool bMessage) {
 	char sQuery[500];
 	char sClientName[MAX_NAME_LENGTH];
 	GetClientName(iClient, sClientName, sizeof(sClientName));
-	PrintToServer("[sakaSTATS] CreatePlayer(Start): %N", iClient);
 	int iLoginTime = GetTime();
 	Format(sQuery, sizeof(sQuery), "INSERT INTO sakaStats (steamid,name,kills,deaths,lastLogout,firstLogin,lastLogin,playtime,coins,points,topSpeed,deflections) VALUES ('%s', '%s', '0', '0', '0', '%i', '%i', '0', '0', '1000', '0', '0');", GetSteamId(iClient), sClientName, iLoginTime, iLoginTime);
 	if (!SQL_FastQuery(DB, sQuery)){ 
 		char sError[255]; 
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] CreatePlayer(Error) Failed to Query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] CreatePlayer() Failed to Query (error: %s)", sError);
 	}
 	StatsPlayer[iClient].sName = sClientName;
 	StatsPlayer[iClient].iLastLogout = 0;
@@ -794,23 +792,21 @@ public void CreatePlayer(int iClient, bool bMessage) {
 	StatsPlayer[iClient].iDeaths = 0;
 	StatsPlayer[iClient].iPlayTime = 0;
 	StatsPlayer[iClient].iCoins = 0;
-	StatsPlayer[iClient].iPlayTime = 1000;
 	StatsPlayer[iClient].iTopSpeed = 0;
 	StatsPlayer[iClient].iDeflections = 0;
 	StatsPlayer[iClient].savedPoints = 1000;
-	PrintToServer("[sakaSTATS] CreatePlayer(End): %N", iClient);
+	PrintToServer("[sakaSTATS] CreatePlayer(): %N", iClient);
 	if (bMessage)
 		CreateTimer(3.0, WelcomeFirst, iClient);		
 }
 public void LoadPlayerFromDB(int iClient, bool bMessage) {
-	PrintToServer("[sakaSTATS] LoadPlayerFromDB(Start) %N", iClient);
 	char sQuery[255];
 	Format(sQuery, sizeof(sQuery), "SELECT * FROM sakaStats WHERE steamid ='%s';", GetSteamId(iClient));
 	DBResultSet rsQuery = SQL_Query(DB, sQuery);
 	if (rsQuery == null) {
 		char sError[255];
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] LoadPlayerFromDB(Error) Failed to query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] LoadPlayerFromDB() Failed to query (error: %s)", sError);
 	} else {
 		SQL_FetchRow(rsQuery);
 		StatsPlayer[iClient].iKills = SQL_FetchInt(rsQuery, 2);
@@ -827,7 +823,7 @@ public void LoadPlayerFromDB(int iClient, bool bMessage) {
 		char sClientName[MAX_NAME_LENGTH];
 		GetClientName(iClient, sClientName, sizeof(sClientName));
 		StatsPlayer[iClient].sName = sClientName;
-		PrintToServer("[sakaSTATS] LoadPlayerFromDB(End) %N", iClient);
+		PrintToServer("[sakaSTATS] LoadPlayerFromDB() %N", iClient);
 		if (bMessage)
 			CreateTimer(3.0, WelcomeBack, iClient);
 	}
@@ -847,6 +843,20 @@ public void LoadPlayerToDB(int iClient) {
 	int iFinalTime = iPlaytime + GetTime() - iLastLogin;
 	Format(sQuery, sizeof(sQuery), "UPDATE sakaStats SET name='%s',kills='%i',deaths='%i',lastLogout='%i',lastLogin='%i',playtime='%i',coins='%i',points='%i',topspeed='%i',deflections='%i' WHERE steamid='%s'", sClientName, iKills, iDeaths, GetTime(), iLastLogin, iFinalTime, iCoins, iPoints, iTopSpeed, iDeflections, GetSteamId(iClient));
 	SQL_FastQuery(DB, sQuery);
+	PrintToServer("[sakaSTATS] LoadPlayerToDB() %N", iClient);
+}
+public void LoadAllPlayersToDB() {
+	for (int i = 1; i < MaxClients; i++) {
+		if (IsEntityConnectedClient(i) && !IsFakeClient(i)) { 
+			if (PlayerExists(i)) { LoadPlayerToDB(i); }
+			else { CreatePlayer(i, false); }
+		}
+	}
+}
+public void LoadAllPlayersFromDB() {
+	for (int client = 1; client < MaxClients; client++) {
+		if (IsEntityConnectedClient(client) && !IsFakeClient(client)) { LoadPlayerFromDB(client, false); }
+	}
 }
 
 

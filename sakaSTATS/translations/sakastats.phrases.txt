@@ -36,4 +36,38 @@
         "#format"   "{1:N},{2:.0f},{3:i},{4:s},{5:.0f}"
         "en"    "{mediumpurple}{1} {black}: {dodgerblue}{2}{default} mph ({dodgerblue}{3}{default} {4} | {dodgerblue}{5}{default} Admin Speed)"
     }
+    "RoundStart_StatsEnabled" {
+        /**
+         * {1} - Current Players Online
+         * {2} - Minimum Players Required
+         */
+        "#format"   "{1:i},{2:i}"
+        "en"    "{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are now enabled ({dodgerblue}{1}{default}/{dodgerblue}{2}{default})"
+    }
+    "RoundStart_StatsDisabled" {
+        /**
+         * {1} - Current Players Online
+         * {2} - Minimum Players Required
+         */
+        "#format"   "{1:i},{2:i}"
+        "en"    "{mediumpurple}ᴛғᴅʙ {black}» {default}Stats are disabled. Not enough active Players ({dodgerblue}{1}{default}/{dodgerblue}{2}{default})"
+    }
+    "PlayerJoin_WelcomeBack" {
+        /**
+         * {1} - Player Name
+         * {2} - Current Player Rank (Points)
+         * {3} - Current Player Points
+         * {4} - Player Country
+         */
+        "#format"   "{1:N},{2:i},{3:i},{4:s}"
+        "en"    "{mediumpurple}ᴛғᴅʙ {black}» {default}Welcome back, {dodgerblue}{1}{default}! ({dodgerblue}#{2}{default} with {dodgerblue}{3}{default} Points | {dodgerblue}{4}{default})"
+    }
+    "PlayerJoin_FirstWelcome" {
+        /**
+         * {1} - Player Name
+         * {2} - Player Country
+         */
+        "#format"   "{1:N},{2:s}"
+        "en"    "{mediumpurple}ᴛғᴅʙ {black}» {dodgerblue}{1}{default} joined the first time from {dodgerblue}{2}{default}. Welcome!"
+    }  
 }
