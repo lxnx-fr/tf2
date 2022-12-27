@@ -38,9 +38,29 @@ enum struct CachedStats {
 
 bool bStatsEnabled = false;
 bool bBotFound = false;
-int iMinRequiredPlayersForStats = 3;
+
+/**
+ * Config Values
+ */
+int cvMinRequiredPlayers = 3;
+int cvSendWelcomeBackMsg = 1;
+int cvSendFirstWelcomeMsg = 1;
+int cvCountTopSpeedWithBots = 0;
+
+
+
+/**
+ * @todo
+ * - Add "milestones/elos" > Get a specific Title/Permission after reaching an amount of Value in a Statistic (Points)
+ * -  
+ * 
+ * 
+ * 
+ * 
+ */
 
 CachedStats StatsPlayer[MAXPLAYERS + 1];
+KeyValues kvConfig;
 
 public Plugin myinfo = {
 	name = PLUGIN_NAME,
@@ -61,6 +81,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 public void OnPluginStart() {
 	PrintToServer("[sakaSTATS] Enabling Plugin (Version %s)", PLUGIN_VERSION);
 	LoadTranslations("sakastats.phrases.txt");
+	LoadConfig();
 	InitDatabase(true);	
 	RegServerCmd("sakastats", SakaStatsServerCommand);
 	RegConsoleCmd("sm_stats", StatsCommand);
@@ -89,7 +110,6 @@ public void InitDatabase(bool bConnect) {
 	char sError[255];
 	if (bConnect) {
 		DB = SQL_Connect("sakastats", true, sError, sizeof(sError));
-		//DB = SQL_ConnectCustom(DB_KEYVALUES, sError, sizeof(sError), false);
 		if (DB == INVALID_HANDLE) {
 	    	PrintToServer("[sakaSTATS] Could not connect to database: %s", sError);
 	    	delete DB;
@@ -97,11 +117,25 @@ public void InitDatabase(bool bConnect) {
 		PrintToServer("[sakaSTATS] Connecting to database...");
 		if (!SQL_FastQuery(DB, SQL_QUERY_CREATE)) {
 			SQL_GetError(DB, sError, sizeof(sError));
-			PrintToServer("[sakaSTATS] Failed to create table (error: %s)", sError);
+			PrintToServer("[sakaSTATS] Failed to create stats table: %s", sError);
 		}
 	} else {
 		delete DB;
 	}
+}
+
+public void LoadConfig() {
+	PrintToServer("[sakaSTATS] Loading Config file...");
+	char sPath[64];
+	BuildPath(Path_SM, sPath, sizeof(sPath), "configs/sakastats.cfg");
+	kvConfig = new KeyValues("sakastats");
+	if (!kvConfig.ImportFromFile(sPath)) {
+        SetFailState("Config file missing");
+    }
+	cvMinRequiredPlayers = kvConfig.GetNum("minRequiredPlayers");
+	cvSendWelcomeBackMsg = kvConfig.GetNum("sendWelcomeBackMsg");
+	cvSendFirstWelcomeMsg = kvConfig.GetNum("sendFirstWelcomeMsg");
+	cvCountTopSpeedWithBots = kvConfig.GetNum("countTopSpeedWithBots");
 }
 /**
  * Plugin Events
@@ -152,10 +186,9 @@ public void OnEntityDestroyed(int iEntity) {
 	CPrintToChatAll("%t", "OnEntityDestroyed", iTarget, fRocketSpeed, iDeflections, (iDeflections == 1 ? "Deflection" : "Deflections"), fRocketAdminSpeed);
 }
 public void TFDB_OnRocketDeflect(int iIndex, int iEntity, int iOwner) {
-	if (!bBotFound) {
+	if (!bBotFound || cvCountTopSpeedWithBots == 1) {
 		int iSavedTopSpeed = StatsPlayer[iOwner].iTopSpeed;
 		int iSavedDeflections = StatsPlayer[iOwner].iDeflections;
-		
 		int iCurrentTopSpeed = RoundToNearest(TFDB_GetRocketSpeed(iIndex));
 		int iCurrentDeflections = TFDB_GetRocketDeflections(iIndex);
 		if (iCurrentTopSpeed > iSavedTopSpeed) { 
@@ -170,11 +203,9 @@ public void OnClientPutInServer(int iClient) {
 	if (!IsEntityConnectedClient(iClient) || IsFakeClient(iClient)) return;
 	GetPlayerCountry(iClient);
 	if (PlayerExists(iClient)) {
-		PrintToServer("[sakaSTATS] PlayerExits(true) %N", iClient);
 		StatsPlayer[iClient].iLastLogin = GetTime();
 		LoadPlayerFromDB(iClient, true);
 	} else {
-		PrintToServer("[sakaSTATS] PlayerExists(false) %N", iClient);
 		CreatePlayer(iClient, true);
 	}
 }
@@ -184,14 +215,14 @@ public void OnClientDisconnect(int iClient) {
 }
 public Action RoundStartEvent(Handle hEvent, char[] strEventName, bool bDontBroadcast) {
 	bBotFound = IsPlayerVsBot();
-	if (PlayerCountWithoutBots() >=3 ) {
+	if (PlayerCountWithoutBots() >= cvMinRequiredPlayers ) {
 		if (!bStatsEnabled) {
-			CPrintToChatAll("%t", "RoundStart_StatsEnabled", PlayerCountWithoutBots(), iMinRequiredPlayersForStats);
+			CPrintToChatAll("%t", "RoundStart_StatsEnabled", PlayerCountWithoutBots(), cvMinRequiredPlayers);
 		}
 		bStatsEnabled = true; 
 	} else {
 		bStatsEnabled = false;
-		CPrintToChatAll("%t", "RoundStart_StatsDisabled", PlayerCountWithoutBots(), iMinRequiredPlayersForStats);
+		CPrintToChatAll("%t", "RoundStart_StatsDisabled", PlayerCountWithoutBots(), cvMinRequiredPlayers);
 	}
 	return Plugin_Continue;
 }
@@ -729,17 +760,17 @@ stock bool PlayerExists(int iClient) {
 stock bool GetPlayerCountry(int iClient) {
 	bool bCountryFailed = false;
 	bool bIPFailed = false;
-	char sCountryName[255];
+	char sCountryName[128];
 	char sClientIP[128];
 	if (!GetClientIP(iClient, sClientIP, sizeof(sClientIP), true)) {
-		PrintToServer("[sakaSTATS] GetPlayerCountry(Error) IP-Adress not found: %N", iClient);
+		PrintToServer("[sakaSTATS] GetPlayerCountry() IP-Adress not found: %N", iClient);
 		bIPFailed = true;
 	}
-	if (!GeoipCountry(sClientIP, sCountryName, 255) || bIPFailed) {
-		PrintToServer("[sakaSTATS] GetPlayerCountry(Error) Country not found: %N", iClient);
+	if (!GeoipCountry(sClientIP, sCountryName, sizeof(sCountryName)) || bIPFailed) {
+		PrintToServer("[sakaSTATS] GetPlayerCountry() Country not found: %N", iClient);
 		bCountryFailed = true;
 	}
-	
+	PrintToServer("[sakaSTATS] Player Countr of %N: %s", iClient, sCountryName);
 	StatsPlayer[iClient].sCountry = ((bIPFailed && bCountryFailed) ? "Not Found" : sCountryName);
 	return bIPFailed && bCountryFailed;
 }
@@ -782,7 +813,7 @@ public void CreatePlayer(int iClient, bool bMessage) {
 	if (!SQL_FastQuery(DB, sQuery)){ 
 		char sError[255]; 
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] CreatePlayer() Failed to Query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] CreatePlayer(): Failed to Query (error: %s)", sError);
 	}
 	StatsPlayer[iClient].sName = sClientName;
 	StatsPlayer[iClient].iLastLogout = 0;
@@ -796,7 +827,7 @@ public void CreatePlayer(int iClient, bool bMessage) {
 	StatsPlayer[iClient].iDeflections = 0;
 	StatsPlayer[iClient].savedPoints = 1000;
 	PrintToServer("[sakaSTATS] CreatePlayer(): %N", iClient);
-	if (bMessage)
+	if (bMessage && cvSendFirstWelcomeMsg == 1)
 		CreateTimer(3.0, WelcomeFirst, iClient);		
 }
 public void LoadPlayerFromDB(int iClient, bool bMessage) {
@@ -806,7 +837,7 @@ public void LoadPlayerFromDB(int iClient, bool bMessage) {
 	if (rsQuery == null) {
 		char sError[255];
 		SQL_GetError(DB, sError, sizeof(sError));
-		PrintToServer("[sakaSTATS] LoadPlayerFromDB() Failed to query (error: %s)", sError);
+		PrintToServer("[sakaSTATS] LoadPlayerFromDB(): Failed to query error: %s", sError);
 	} else {
 		SQL_FetchRow(rsQuery);
 		StatsPlayer[iClient].iKills = SQL_FetchInt(rsQuery, 2);
@@ -823,8 +854,8 @@ public void LoadPlayerFromDB(int iClient, bool bMessage) {
 		char sClientName[MAX_NAME_LENGTH];
 		GetClientName(iClient, sClientName, sizeof(sClientName));
 		StatsPlayer[iClient].sName = sClientName;
-		PrintToServer("[sakaSTATS] LoadPlayerFromDB() %N", iClient);
-		if (bMessage)
+		PrintToServer("[sakaSTATS] LoadPlayerFromDB(): %N", iClient);
+		if (bMessage && cvSendWelcomeBackMsg == 1)
 			CreateTimer(3.0, WelcomeBack, iClient);
 	}
 }
@@ -843,7 +874,7 @@ public void LoadPlayerToDB(int iClient) {
 	int iFinalTime = iPlaytime + GetTime() - iLastLogin;
 	Format(sQuery, sizeof(sQuery), "UPDATE sakaStats SET name='%s',kills='%i',deaths='%i',lastLogout='%i',lastLogin='%i',playtime='%i',coins='%i',points='%i',topspeed='%i',deflections='%i' WHERE steamid='%s'", sClientName, iKills, iDeaths, GetTime(), iLastLogin, iFinalTime, iCoins, iPoints, iTopSpeed, iDeflections, GetSteamId(iClient));
 	SQL_FastQuery(DB, sQuery);
-	PrintToServer("[sakaSTATS] LoadPlayerToDB() %N", iClient);
+	PrintToServer("[sakaSTATS] LoadPlayerToDB(): %N", iClient);
 }
 public void LoadAllPlayersToDB() {
 	for (int i = 1; i < MaxClients; i++) {
