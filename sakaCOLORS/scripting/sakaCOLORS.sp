@@ -1,4 +1,6 @@
 #pragma semicolon 1
+#pragma newdecls required
+
 
 #include <sourcemod>
 #include <sdktools>
@@ -6,15 +8,13 @@
 #include <chat-processor>
 #include <dbi>
 
-
-
-
-#define PLUGIN_VERSION 		"1.0"
+#define PLUGIN_VERSION 		"1.3"
 #define PLUGIN_NAME 		"sakaCOLORS"
 #define PLUGIN_AUTHOR 		"ѕαĸα"
 #define PLUGIN_DESCRIPTION  "Chnge Thirdperson and Firstperson"
 #define PLUGIN_URL 			"https://tf2.l03.dev/"
 #define SQL_QUERY_CREATE "CREATE TABLE IF NOT EXISTS sakaColors_Clients (steamid VARCHAR(64), tagColor VARCHAR(32), chatColor VARCHAR(32), nameColor VARCHAR(32), tag VARCHAR(64), groupName VARCHAR(64), useGroupTag INT, useGroupTagColor INT, useGroupNameColor INT, useGroupChatColor INT);"
+
 
 Handle DB = INVALID_HANDLE;
  
@@ -37,10 +37,11 @@ enum struct PlayerInfo {
     bool bUseGroupTagColor;
     bool bUseGroupNameColor;
     bool bUseGroupChatColor;
-    /**
-     * Menu Settings Option
-     */
-    int iCurrentSettingOption;
+}
+
+enum struct MenuInfo {
+    char sSelectedSteamId[32];
+    int iSelectedClient;
 }
 
 enum struct GroupInfo {
@@ -50,8 +51,9 @@ enum struct GroupInfo {
     char sChatColor[32];
 }
 
-
 PlayerInfo CI[MAXPLAYERS];
+MenuInfo MI[MAXPLAYERS];
+
 KeyValues kvConfig;
 StringMap mGroups;
 
@@ -62,16 +64,13 @@ public void OnPluginStart() {
     InitDatabase(true);
     LoadAllPlayersFromDB();
     RegConsoleCmd("sm_scc", MainCommand);
+    RegAdminCmd("sm_scca", AdminCommand, ADMFLAG_BAN);
     HookEvent("teamplay_round_win", RoundEndEvent, EventHookMode_PostNoCopy);
 }
 public void OnPluginEnd() {
     LoadAllPlayersToDB();
     InitDatabase(false);
     PrintToServer("[sakaCOLORS] Disabling Plugin");
-   /* GroupInfo group;
-    group.sFlag = "d";
-    StringMap smap = new StringMap();
-    smap.SetValue("admin", );    */
 }
 
 public APLRes AskPluginLoad2(Handle hMySelf, bool bLate, char[] sError, int iErrMax) {
@@ -153,17 +152,12 @@ public void InitDatabase(bool bConnect) {
 	}
 }
 
+public Action AdminCommand(int iClient, int iArgs) {
+    DrawAdminMenu(iClient);
+    return Plugin_Handled;
+}
 
 public Action MainCommand(int iClient, int iArgs) {
-    /**
-     * load data from database, save data to database on disconnect etc... (caching)
-     */
-    /**
-     * check if color exists with name comparison and regex check
-     */
-    /**
-     * add tag with onsaytext2 like on warn system interactive
-     */
     if (iArgs == 0) {
         DrawMainMenu(iClient);
     } else if (iArgs == 2) {
@@ -207,6 +201,163 @@ public Action MainCommand(int iClient, int iArgs) {
     return Plugin_Handled;
 }
 
+public void DrawAdminMenu(int iClient) {
+    Menu menu = new Menu(AdminMenuHandle);
+    menu.SetTitle("Custom Colors Admin Menu");
+    menu.AddItem("0", "Manage Players");
+    menu.AddItem("1", "Manage Groups");
+    menu.AddItem("2", "Global Settings");
+    menu.Display(iClient, MENU_TIME_FOREVER);
+}
+public int AdminMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) {
+    switch (action) {
+        case MenuAction_Select: {
+            switch (iItem) {
+                case 0: {
+                    DrawOnlinePlayersMenu(iClient);
+                }
+            }
+        }
+        case MenuAction_End: {
+            delete menu;
+        }
+    }
+    return 0;
+}
+
+public void DrawOnlinePlayersMenu(int iClient) {
+    Menu menu = new Menu(OnlinePlayersMenuHandle);
+    menu.SetTitle("Choose a Player");
+    for(int iTarget = 0; iTarget <= MAXPLAYERS; iTarget++) {
+        if (IsEntityConnectedClient(iTarget) && !IsFakeClient(iTarget)) {
+            char sMenuText[100];
+            Format(sMenuText, sizeof(sMenuText), "#%i - %N", iTarget, iTarget);
+            menu.AddItem(GetSteamId(iTarget), sMenuText);
+        }
+    }
+    menu.ExitBackButton = true;
+    menu.ExitButton = true;
+    menu.Display(iClient, MENU_TIME_FOREVER);
+}
+public int OnlinePlayersMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) {
+    switch (action) {
+        case MenuAction_Select: {
+            char sSteamId[32];
+            bool bFound = menu.GetItem(iItem, sSteamId, sizeof(sSteamId));
+            if (bFound) {
+                MI[iClient].sSelectedSteamId = sSteamId;
+                DrawPlayerSettingsMenu(iClient);
+            }
+        }
+        case MenuAction_Cancel: {
+            if (iItem == MenuCancel_ExitBack) {
+                DrawAdminMenu(iClient);
+            }
+        }
+    }
+    return 0;
+}
+
+public void DrawPlayerSettingsMenu(int iClient) {
+    Menu menu = new Menu(PlayerSettingsMenuHandle);
+    char sBuffer[100];
+    Format(sBuffer, sizeof(sBuffer), "Settings of %s", GetPlayerName(MI[iClient].sSelectedSteamId));
+    menu.SetTitle(sBuffer);
+    menu.AddItem("1", "Show Data");
+    menu.AddItem("2", "Change Group");
+    menu.AddItem("3", "Change Tag");
+    menu.AddItem("4", "Change TagColor");
+    menu.AddItem("5", "Change NameColor");
+    menu.AddItem("5", "Change ChatColor");
+    menu.AddItem("6", "Reset Everything");
+    menu.ExitButton = true;
+    menu.ExitBackButton = true;
+    menu.Display(iClient, MENU_TIME_FOREVER);
+}
+
+public int PlayerSettingsMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) {
+    switch (action) {
+        case MenuAction_Select: {
+            switch (iItem) {
+                case 0: {
+                    DrawPlayerDataMenu(iClient);
+                }
+                case 1: {
+
+                }
+                case 2: {
+
+                }
+                case 3: {
+
+                }
+                case 4: {
+
+                }
+                case 5: {
+
+                }
+                case 6: {
+                    int iSelectedIndex = GetPlayerIndex(MI[iClient].sSelectedSteamId);
+                    CI[iSelectedIndex].sGroup = "default";
+                    CI[iSelectedIndex].sTag = "";
+                    CI[iSelectedIndex].sTagColor = ""; 
+                    CI[iSelectedIndex].sNameColor = "";
+                    CI[iSelectedIndex].sChatColor = "";
+                    CI[iSelectedIndex].bUseGroupTag = true;
+                    CI[iSelectedIndex].bUseGroupTagColor = true; 
+                    CI[iSelectedIndex].bUseGroupNameColor = true;
+                    CI[iSelectedIndex].bUseGroupChatColor = true;
+                    CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}Resetted Custom Colors Settings of {dodgerblue}%N", iSelectedIndex);
+                }   
+            }
+        }
+        case MenuAction_Cancel: {
+            if (iItem == MenuCancel_ExitBack) {
+                MI[iClient].sSelectedSteamId = "";
+                DrawOnlinePlayersMenu(iClient);
+            }
+        }
+    }
+    return 0;
+}
+
+public void DrawPlayerDataMenu(int iClient) {
+    char sSelectedSteamId[32];
+    sSelectedSteamId = MI[iClient].sSelectedSteamId;
+    if (strlen(sSelectedSteamId) < 12) {
+        CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {red}Could not find Player with SteamID: %s", MI[iClient].sSelectedSteamId);
+        return;
+    }
+    int iSelectedIndex = GetPlayerIndex(sSelectedSteamId);
+    Menu menu = new Menu(PlayerDataMenuHandle);
+    char sBuffer[100];
+    Format(sBuffer, sizeof(sBuffer), "Data of %N", iSelectedIndex);
+    menu.SetTitle(sBuffer);
+    menu.AddItem("0", "Active Group", ITEMDRAW_DISABLED);
+    menu.AddItem("1", CI[iSelectedIndex].sGroup, ITEMDRAW_DISABLED);
+    menu.AddItem("2", "Custom Tag", ITEMDRAW_DISABLED);
+    menu.AddItem("3", CI[iSelectedIndex].sTag, ITEMDRAW_DISABLED);
+    menu.AddItem("4", "Custom TagColor", ITEMDRAW_DISABLED);
+    menu.AddItem("5", CI[iSelectedIndex].sTagColor, ITEMDRAW_DISABLED);
+    menu.AddItem("6", "Custom NameColor", ITEMDRAW_DISABLED);
+    menu.AddItem("7", CI[iSelectedIndex].sNameColor, ITEMDRAW_DISABLED);
+    menu.AddItem("6", "Custom ChatColor", ITEMDRAW_DISABLED);
+    menu.AddItem("7", CI[iSelectedIndex].sChatColor, ITEMDRAW_DISABLED);
+    menu.ExitBackButton = true;
+    menu.ExitButton = true;
+    menu.Display(iClient, MENU_TIME_FOREVER);
+}
+public int PlayerDataMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) {
+    switch (action) {
+        case MenuAction_Cancel: {
+            if (iItem == MenuCancel_ExitBack) {
+                DrawPlayerSettingsMenu(iClient);
+            }
+        }
+    }
+    return 0;
+}
 
 public void DrawMainMenu(int iClient) {
     Menu menu = new Menu(MainMenuHandle);
@@ -218,7 +369,6 @@ public void DrawMainMenu(int iClient) {
     menu.ExitButton = true;
     menu.Display(iClient, MENU_TIME_FOREVER);
 }
-
 public int MainMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) {
     switch (action) {
         case MenuAction_Select: {
@@ -247,7 +397,6 @@ public int MainMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) 
     }
     return 0;
 }
-
 public void DrawSettingsMenu(int iClient) {
     Menu menu = new Menu(SettingsMenuHandle);
     menu.SetTitle("Custom Colors Settings");
@@ -269,74 +418,26 @@ public int SettingsMenuHandle(Menu menu, MenuAction action, int iClient, int iIt
         case MenuAction_Select: {
             switch (iItem) {
                 case 0: { 
-                        CI[iClient].bUseGroupTag = !CI[iClient].bUseGroupTag; 
-                        CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You %s {default}the {dodgerblue}Use Group Tag {default}Option.", CI[iClient].bUseGroupTag ? "{green}Enabled" : "{red}Disabled"); 
-                    }
+                    CI[iClient].bUseGroupTag = !CI[iClient].bUseGroupTag; 
+                    CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You %s {default}the {dodgerblue}Use Group Tag {default}Option.", CI[iClient].bUseGroupTag ? "{green}Enabled" : "{red}Disabled"); 
+                }
                 case 1: { 
-                        CI[iClient].bUseGroupTagColor = !CI[iClient].bUseGroupTagColor; 
-                        CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group TagColor {default}Option.", CI[iClient].bUseGroupTagColor ? "{green}Enabled" : "{red}Disabled"); 
-                    }
+                    CI[iClient].bUseGroupTagColor = !CI[iClient].bUseGroupTagColor; 
+                    CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group TagColor {default}Option.", CI[iClient].bUseGroupTagColor ? "{green}Enabled" : "{red}Disabled"); 
+                }
                 case 2: {
-                        CI[iClient].bUseGroupNameColor = !CI[iClient].bUseGroupNameColor; 
-                        CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group NameColor {default}Option.", CI[iClient].bUseGroupNameColor ? "{green}Enabled" : "{red}Disabled"); 
-                    }
+                    CI[iClient].bUseGroupNameColor = !CI[iClient].bUseGroupNameColor; 
+                    CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group NameColor {default}Option.", CI[iClient].bUseGroupNameColor ? "{green}Enabled" : "{red}Disabled"); 
+                }
                 case 3: { 
-                        CI[iClient].bUseGroupChatColor = !CI[iClient].bUseGroupChatColor; 
-                        CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group ChatColor {default}Option.", CI[iClient].bUseGroupChatColor ? "{green}Enabled" : "{red}Disabled");
-                    }
+                    CI[iClient].bUseGroupChatColor = !CI[iClient].bUseGroupChatColor; 
+                    CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group ChatColor {default}Option.", CI[iClient].bUseGroupChatColor ? "{green}Enabled" : "{red}Disabled");
+                }
             }
-            delete menu;
             DrawSettingsMenu(iClient);
         }
         case MenuAction_Cancel: {
             if (iItem == MenuCancel_ExitBack) { DrawMainMenu(iClient); }
-        }
-        case MenuAction_End: {
-            delete menu;
-        }
-    }
-    return 0;
-}
-public void DrawChangeSettingMenu(int iClient, int iSetting) {
-    Menu menu = new Menu(ChangeSettingMenuHandle);
-    menu.SetTitle("Change Custom Colors Settings");
-    char sBuffer[64];
-    Format(sBuffer, sizeof(sBuffer), "Use Group Tag: %s", CI[iClient].bUseGroupTag ? "Yes" : "No");
-    menu.AddItem("0", sBuffer);
-    Format(sBuffer, sizeof(sBuffer), "Use Group TagColor: %s", CI[iClient].bUseGroupTagColor ? "Yes" : "No");
-    menu.AddItem("1", sBuffer);
-    Format(sBuffer, sizeof(sBuffer), "Use Group NameColor: %s", CI[iClient].bUseGroupNameColor ? "Yes" : "No");
-    menu.AddItem("2", sBuffer);
-    Format(sBuffer, sizeof(sBuffer), "Use Group ChatColor: %s", CI[iClient].bUseGroupChatColor ? "Yes" : "No");
-    menu.AddItem("3", sBuffer);
-    menu.ExitBackButton = true;
-    menu.ExitButton = true;
-    menu.Display(iClient, MENU_TIME_FOREVER);
-}
-public int ChangeSettingMenuHandle(Menu menu, MenuAction action, int iClient, int iItem) {
-    switch (action) {
-        case MenuAction_Select: {
-            if (iItem == 0) {
-                switch (CI[iClient].iCurrentSettingOption) {
-                    case 0: { CI[iClient].bUseGroupTag = true; CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group Tag {default}Option."); }
-                    case 1: { CI[iClient].bUseGroupTagColor = true; CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group TagColor {default}Option."); }
-                    case 2: { CI[iClient].bUseGroupNameColor = true; CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group NameColor {default}Option."); }
-                    case 3: { CI[iClient].bUseGroupTag = true; CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {green}Enabled {default}the {dodgerblue}Use Group ChatColor {default}Option."); }
-                }
-            } else if (iItem == 1) {
-                switch (CI[iClient].iCurrentSettingOption) {
-                    case 0: { CI[iClient].bUseGroupTag = false; CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {red}Disabled {default}the {dodgerblue}Use Group Tag {default}Option."); }
-                    case 1: { CI[iClient].bUseGroupTagColor = false; CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {red}Disabled {default}the {dodgerblue}Use Group TagColor {default}Option."); }
-                    case 2: { CI[iClient].bUseGroupNameColor = false; CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {red}Disabled {default}the {dodgerblue}Use Group NameColor {default}Option."); }
-                    case 3: { CI[iClient].bUseGroupTag = false; CPrintToChat(iClient, "{mediumpurple}sᴄᴄ {black}» {default}You {red}Disabled {default}the {dodgerblue}Use Group ChatColor {default}Option."); }
-                }
-            }
-        }
-        case MenuAction_Cancel: {
-            if (iItem == MenuCancel_ExitBack) { DrawSettingsMenu(iClient); }
-        }
-        case MenuAction_End: {
-            delete menu;
         }
     }
     return 0;
@@ -575,4 +676,28 @@ stock GroupInfo GetGroupInfo(char[] sGroupName) {
 }
 stock bool GroupExists(char[] sGroupName) {
     return mGroups.ContainsKey(sGroupName);
+}
+
+stock char[] GetPlayerName(char[] sSteamId) {
+    char sName[MAX_NAME_LENGTH];
+    for (int i = 1; i <= MaxClients; i++) {
+        if (IsEntityConnectedClient(i) && !IsFakeClient(i)) {
+            if (StrEqual(GetSteamId(i), sSteamId, true)) {
+                GetClientName(i, sName, sizeof(sName));
+                return sName;
+            }
+        }
+    }
+    return sName;
+}
+stock int GetPlayerIndex(char[] sSteamId) {
+    int iPlayerIndex = -1; 
+    for (int i = 1; i <= MaxClients; i++) {
+        if (IsEntityConnectedClient(i) && !IsFakeClient(i)) {
+            if (StrEqual(GetSteamId(i), sSteamId, true)) {
+                return i;
+            }
+        }
+    }
+    return iPlayerIndex;
 }

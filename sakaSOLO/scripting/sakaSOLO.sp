@@ -862,7 +862,7 @@ stock bool IsRestOfTeamInSoloQueue(int iCurrentTeam) {
     int iCurrentTeamCount = TeamClientCount(iCurrentTeam);
     for (int i = 1; i <= MaxClients; i++) {
         
-        if (IsClientInGame(i) && IsClientConnected(i) && GetClientTeam(i) == iCurrentTeam) {
+        if (IsClientInGame(i) && GetClientTeam(i) == iCurrentTeam) {
             if (IsPlayerInAnyTeamQueue(i) || IsPlayerInRedTeamQueue(i) || IsPlayerInBlueTeamQueue(i)) { iCurrentTeamCount--; }
         }
     }
@@ -871,7 +871,7 @@ stock bool IsRestOfTeamInSoloQueue(int iCurrentTeam) {
 stock int TeamClientCount(int iTeam) {
     int iValue = 0;
     for (int i = 1; i <= MaxClients; i++) {
-        if (IsClientConnected(i) && GetClientTeam(i) == iTeam) { iValue++; }
+        if (IsClientInGame(i) && GetClientTeam(i) == iTeam) { iValue++; }
     }
     return iValue;
 }
