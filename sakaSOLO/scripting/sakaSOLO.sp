@@ -230,6 +230,12 @@ public void OnMapStart() {
     ClearArray(hRedQueue);
     ClearArray(hBlueQueue);
     ClearArray(hNoPreferenceQueue);
+    for (int i = 1; i <= MaxClients; i++) {
+        SoloPlayer[i].bAnyTeam = false;
+        SoloPlayer[i].bSoloMode = false;
+        SoloPlayer[i].bHasRespawned = false;
+        SoloPlayer[i].bNoDamage = false;
+    }
     CreateTimer(10.0, MapStartTimer);
     bRoundStarted = false;
     iLastRespawnedClient = 0;
